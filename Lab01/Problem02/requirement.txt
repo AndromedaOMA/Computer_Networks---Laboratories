@@ -1,0 +1,1 @@
+Folosind functiile opendir() si readdir(), plecand de la exemplul de la mai sus, implementati-va propriul ls. 

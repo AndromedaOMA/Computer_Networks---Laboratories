@@ -1,0 +1,6 @@
+Creati un program C care va face urmatoarele:
+  va crea un proces copil care va executa, folosind o functie de tip exec() o comanda bash
+  procesul copil ca inchide mai intai descriptorul de scriere si il va duplica la capatul de scriere al pipe-ului
+  procesul parinte va inchide descriotorul de citire si il va duplica la capatul de citire al pipe-ului.
+
+Extrapolati exemplul de mai sus pentru a va face programul sa execute o comanda piped (e.g. ls | grep a)

@@ -1,0 +1,4 @@
+Scrieti un program C care citeste cate un caracter de la tastatura si  il afiseaza:
+la iesirea standard (stdout) daca este litera
+la descriptorul de eroare (2) daca nu este litera
+Se vor ignora caracterele newline.

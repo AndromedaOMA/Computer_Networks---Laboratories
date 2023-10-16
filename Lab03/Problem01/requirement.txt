@@ -1,0 +1,5 @@
+Urmatorul program C arata minimal modul de folosire al pipe-urilor.
+In exemplul de mai jos se creeaza un pipe pentru a face schimb de date intre procesul parinte, mai exact:
+procesul parinte scrie iar cel copil citeste.
+
+Modificati exemplul de mai sus astfel incat schimbul de date sa fie bidirectional. 

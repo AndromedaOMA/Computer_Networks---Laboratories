@@ -1,0 +1,6 @@
+ Scrieti un program C care creeaza un proces folosind fork() si are comportament diferit in parinte fata de copil.
+ In ambele procese afisari pid-ul si parent pid-ul procesului care ruleaza. 
+
+Initializati o variabila inainte de apelul fork() si afisati-i valoarea in ambele procese.
+Dupa, modificati valoarea variabilei in procesul copil. Dupa, afisati valoarea in procesul parinte
+(asigurati-va ca veti afisa in procesul parinte dupa ce s-a modificat valoarea in procesul copil - va puteti folosi de un sleep() ).

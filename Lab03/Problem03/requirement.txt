@@ -1,0 +1,4 @@
+creati doua programe C diferite. 
+in fiecare program, daca fifo-ul pe care vreti sa-l folosti nu exista, il va crea (hint: functia access() din unistd.h).
+unul dintre programe va deschide fifo-ul pentru citire, celalalt pentru scriere.
+cat timp programul care scrie in fifo primeste date de la tastatura, le va scrie in fifo, de unde vor fi citite si afisate de celalt proces.

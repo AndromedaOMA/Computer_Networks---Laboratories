@@ -1,0 +1,5 @@
+Scrieti un program care citeste in mod continuu input de la utilizator.
+Procesul parinte isi va crea la inceputul executiei un proces copil.
+Input-ul citit de la utilizator il va trimite in mod continuu procesului copil.
+Procesul copil va procesa acel input (alegeti o forma de procesare care sa modifice cumva mesajul) si il va trimite inapoi.
+Procesul parinte va fi responsabil sa afiseze mesajul post-procesare.

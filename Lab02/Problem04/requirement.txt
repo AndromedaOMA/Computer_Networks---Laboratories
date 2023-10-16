@@ -1,0 +1,8 @@
+Scrieti un program C care va face urmatoarele:
+procesul parinte isi va crea 2 procese copil
+procesul parinte va avea atasate functii handler pentru SIGUSR1 si SIGUSR2
+primul proces copil va scrie in fisierul text1.txt o data la 3 secunde un anume text, al doilea proces va scrie in fisierul text2.txt o data la 5 secunde un alt text. 
+dupa ce a scris, primul fisier va trimite la parent semnalul SIGUSR1, iar al doilea proces copil va trimite SIGUSR2
+procesul parinte va trata ambele semnale si va citi din descriptorul corespunzator, urmand sa afiseze la consola ceea ce a citit.
+
+Observatie: al doilea exercitiu este un exemplu minimal de Producer-Consumer. Avem doua procese copil care produc date pentru procesul parinte care le consuma. 
