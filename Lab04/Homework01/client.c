@@ -25,27 +25,30 @@ int main(void)
         mknod("fifo_out.txt", S_IFIFO | 0666, 0);
 
     int fifo_out = open("fifo_out.txt", O_RDONLY);
-    //-----------------------------
+    //=============================
 
     char command[1024], response[1024];
-    int ok = 1;
 
-    while (ok)
+    while (1)
     {
         write(1, "Insert the command: ", 21);
-        read(0, command, 1024);
+        int len_command = read(0, command, 1024);
+        command[len_command] = '\0';
+        
+        if (strcmp(command, "quit\n") == 0)
+        {
+            write(1, "End of service!", 16);
+            write(fifo_in, command, 1024);
+            return 0;
+        }
         write(fifo_in, command, 1024);
-        int len = read(fifo_out, response, 1024);
-        response[len] = '\0';
+        int len_response = read(fifo_out, response, 1024);
+        response[len_response] = '\0';
         printf("Server respnose: %s\n", response);
-
-        if (strcmp(response, "quit-verified\0") == 0)
-            ok = 0;
     }
 
     // if (remove("fifo_out.txt") == 0)
     //     write(1, "The fifo_out file has been deleted\n", 35);
     // else
     //     perror("ERR!");
-    return 0;
 }
