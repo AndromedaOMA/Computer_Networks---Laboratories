@@ -44,53 +44,62 @@ bool user_existence_check(char username[], const char fd_name[])
 
 bool length_validation(char response[]) // good
 {
-    char first_char = response[0];
-    int len = atoi(&first_char);
-    char *username = &response[2];
+    char *aux;
+    strcpy(aux, response);
+    char *number = strtok(aux, ":");
+
+    int len_response = atoi(number), len_number = strlen(number), len_part2 = strlen(response) - 1 - len_number;
+
     //---------test-------------
-    // printf("    test2 %d %ld ", len, strlen(username));
-    //-----------------
-    if (len == strlen(username))
+    // printf("    test2 %d %d %s \n", len_response, len_part2, response);
+    //--------------------------
+
+    if (len_response == len_part2)
         return 1;
     return 0;
 }
 
 void get_logged_users(char *buff)
 {
-    // struct utmp *data;
+    struct utmp *data;
 
-    // setutent();
+    setutent();
 
-    // while (data = getutent())
-    // {
-    //     char *message1;
-    //     strcpy(message1, "Usr: ");
-    //     strcat(message1, data->ut_user);
-    //     char *message2;
-    //     strcpy(message2, ", Hnm: ");
-    //     strcat(message2, data->ut_host);
-    //     char *message3;
-    //     strcpy(message3, ", Time: ");
-    //     strcat(message3, data->ut_tv.tv_sec);
-    //     strcat(buff, message1);
-    //     strcat(buff, message2);
-    //     strcat(buff, message3);
-    //     strcat(buff, " | ");
-    // }
+    while (data = getutent())
+    {
+        // char *message1;
+        // strcpy(message1, "Usr: ");
+        // strcat(message1, itoa(data->ut_user));
+        // char *message2;
+        // strcpy(message2, ", Hnm: ");
+        // strcat(message2, itoa(data->ut_host));
+        // char *message3;
+        // strcpy(message3, ", Time: ");
+        // strcat(message3, data->ut_tv.tv_sec);
+        // strcat(buff, message1);
+        // strcat(buff, message2);
+        // strcat(buff, message3);
+        // strcat(buff, " | ");
 
-    // endutent();
+        char entryInfo[1024];
+        snprintf(entryInfo, sizeof(entryInfo), "User->%s, Host->%s, Time->%c", data->ut_user, data->ut_host, data->ut_tv.tv_sec);
+        // snprintf(entryInfo, sizeof(entryInfo), "User: %s, Host: %s", data->ut_user, data->ut_host);
+        strcpy(buff, entryInfo);
+    }
+
+    endutent();
 }
 
 int main(void)
 {
-    //----------------------------fifo_in
+    //----------------------------fifo_in (fifo)
     if (access("fifo_in.txt", F_OK) != -1)
         write(1, "The fifo_in.txt file already exists.\n", 38);
     else
         mknod("fifo_in.txt", S_IFIFO | 0666, 0);
 
     int fifo_in = open("fifo_in.txt", O_RDONLY);
-    //----------------------------fifo_out
+    //----------------------------fifo_out (fifo)
     if (access("fifo_out.txt", F_OK) != -1)
         write(1, "The fifo_out.txt file already exists.\n", 39);
     else
@@ -118,10 +127,10 @@ int main(void)
 
         if (strcmp(command, "quit\n") == 0)
         {
-            write(1, "End of service!", 16);
+            write(1, "End of service!\n", 17);
             return 0;
         }
-        else //------------------------------------------------------"login : username" --- DONE!
+        else //------------------------------------------------------"login : username" (sockets) --- DONE!
             if (strncmp(command, "login :", 7) == 0)
             {
                 int sockets[2], pid;
@@ -151,7 +160,10 @@ int main(void)
                         //---------------------------
                     }
                     else
-                        write(fifo_out, "ERR at login!", 13);
+                    {
+                        char *message = "ERR at login!";
+                        write(fifo_out, message, strlen(message));
+                    }
 
                     close(sockets[1]); // close descriptor when no longer needed
                 }
@@ -168,7 +180,7 @@ int main(void)
                     // write(fd_usernames, username, strlen(username));
                     // write(fd_usernames, " ", 1);
 
-                    if (user_existence_check(username, "usernames.txt")) // TO_DO: verif functia! -- DONE
+                    if (user_existence_check(username, "usernames.txt")) // TO_DO: verif functia! -- DONE!
                     {
                         // char *len = strlen("succes") + '0';
                         strcpy(response, "6");
@@ -192,7 +204,7 @@ int main(void)
                     exit(1);
                 }
             }
-            else //------------------------------------------------------"get-logged-users"
+            else //------------------------------------------------------"get-logged-users" (pipes) --- DONE!
                 if (strncmp(command, "get-logged", 10) == 0)
                 {
                     if (logged)
@@ -214,23 +226,57 @@ int main(void)
                             int len = read(child_to_parent[0], buff_from_child, 1024);
                             buff_from_child[len] = '\0';
 
-                            if (length_validation(buff_from_child))
+                            //--------test--------------
+                            // printf(" test23   %d  %s \n", len, response);
+                            //---------------------------
+
+                            char aux[1024];
+                            strcpy(aux, buff_from_child);
+                            if (length_validation(aux))
                             {
-                                char *message = &buff_from_child[2];
+                                char *message;
+                                char *number = strtok(aux, ":");
+                                if (strlen(number) >= 2)
+                                    message = &buff_from_child[3];
+                                else
+                                    message = &buff_from_child[2];
                                 write(fifo_out, message, 1022);
                             }
                             else
-                                write(fifo_out, "ERR at get-logged-users!", 25);
+                            {
+                                char *message = "ERR at get-logged-users!";
+                                write(fifo_out, message, strlen(message));
+                            }
                         }
                         else
                         { // child
                             close(parent_to_child[1]);
                             close(child_to_parent[0]);
 
-                            char buff_for_parent[1024] = "";
-                            get_logged_users(buff_for_parent); // TO_DO: verif functia!
+                            char aux_buff[1024] = "";
+                            get_logged_users(aux_buff); // TO_DO: verif functia!
 
-                            write(child_to_parent[1], buff_for_parent, 1024);
+                            //--------test--------------
+                            // write(1, "te"st 100--", 10);
+                            // write(1, aux_buff, strlen(aux_buff));
+                            // write(1, "\n", 1);"
+                            //---------------------------
+
+                            char buff_for_parent[1024];
+                            int len = strlen(aux_buff);
+                            char ch[10];
+                            sprintf(ch, "%d", len);
+                            strcpy(buff_for_parent, ch);
+                            strcat(buff_for_parent, ":");
+                            strcat(buff_for_parent, aux_buff);
+
+                            //--------test--------------
+                            // write(1, "test 111--", 10);
+                            // write(1, buff_for_parent, strlen(buff_for_parent));
+                            // write(1, "\n", 1);
+                            //---------------------------
+
+                            write(child_to_parent[1], buff_for_parent, strlen(buff_for_parent));
 
                             exit(0);
                         }
@@ -246,6 +292,7 @@ int main(void)
                     {
                         if (logged)
                         {
+                            //????????????????????????????????????????????????????????????????
                         }
                         else
                         {
@@ -270,6 +317,11 @@ int main(void)
                                 char *message = "ERR! You're not logged in!";
                                 write(fifo_out, message, strlen(message));
                             }
+                        }
+                        else
+                        {
+                            char *message = "Wrong command! Try again!";
+                            write(fifo_out, message, strlen(message));
                         }
     }
 

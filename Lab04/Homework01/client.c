@@ -31,7 +31,7 @@ int main(void)
 
     while (1)
     {
-        write(1, "Insert the command: ", 21);
+        write(1, "+Insert the command: ", 22);
         int len_command = read(0, command, 1024);
         command[len_command] = '\0';
         
@@ -44,7 +44,7 @@ int main(void)
         write(fifo_in, command, 1024);
         int len_response = read(fifo_out, response, 1024);
         response[len_response] = '\0';
-        printf("Server respnose: %s\n", response);
+        printf("-Server respnose: %s\n", response);
     }
 
     // if (remove("fifo_out.txt") == 0)
