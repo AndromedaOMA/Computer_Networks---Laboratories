@@ -51,7 +51,7 @@ bool length_validation(char response[]) // good
     int len_response = atoi(number), len_number = strlen(number), len_part2 = strlen(response) - 1 - len_number;
 
     //---------test-------------
-    // printf("    test2 %d %d %s \n", len_response, len_part2, response);
+    // printf("    test2 %d    %d      %s \n", len_response, len_part2, response);
     //--------------------------
 
     if (len_response == len_part2)
@@ -88,6 +88,88 @@ void get_logged_users(char *buff)
     }
 
     endutent();
+}
+
+void pid_existence_check(char *pid, char *response)
+{
+    response[0] = '\0';
+
+    char *fd;
+    strcpy(fd, "/proc/");
+    strcat(fd, pid);
+    fd[strlen(fd) - 1] = '\0';
+
+    //---------test-----------
+    // write(1, " test1", 6);
+    // write(1, fd, strlen(fd));
+    // write(1, " ", 1);
+    //------------------------
+
+    if (access(fd, F_OK) != -1) // pid_existence_check !!
+    {
+        strcat(fd, "/status");
+        fd[strlen(fd)] = '\0';
+        //---------test-----------
+        // write(1, " test1", 6);
+        // write(1, fd, strlen(fd));
+        // write(1, " ", 1);
+        //------------------------
+        int info = open(fd, O_RDONLY);
+        // ALL the info from /proc/<pid>/status !!
+        int len = read(info, response, 1024);
+        response[len] = '\0';
+
+        //---------test-----------
+        // write(1, " test21", 7);
+        // write(1, response, strlen(response));
+        // write(1, " ", 1);
+        //------------------------
+
+        // strcat(fd, "/status");
+        // fd[strlen(fd)] = '\0';
+        // //---------test-----------
+        // // write(1, " test1", 6);
+        // // write(1, fd, strlen(fd));
+        // // write(1, " ", 1);
+        // //------------------------
+
+        // char line[1024];
+        // char *name = NULL, *state = NULL;
+        // int ppid = -1, uid = -1;
+        // unsigned long vmsize = 0;
+
+        // //ALL the info from /proc/<pid>/status !!
+        // int info = open(fd, O_RDONLY);
+        // int len = read(info, response, 1024);
+        // response[len] = '\0';
+
+        // // FILE *info = fopen(fd, "r");
+        // // while (fgets(line, sizeof(line), info) != NULL)
+        // //     if (sscanf(line, "Name: %s", name) == 1)
+        // //         name = strdup(name);
+        // //     else if (sscanf(line, "State: %s", state) == 1)
+        // //         state = strdup(state);
+        // //     else if (sscanf(line, "PPid: %d", &ppid) == 1)
+        // //     {
+        // //     }
+        // //     else if (sscanf(line, "Uid: %*d %d", &uid) == 1)
+        // //     {
+        // //     }
+        // //     else if (sscanf(line, "VmSize: %lu", &vmsize) == 1)
+        // //     {
+        // //     }
+        // // char result[512];
+        // // snprintf(result, sizeof(result), "Name: %s, State: %s, PPid: %d, UID: %d, VmSize: %lu KB", name, state, ppid, uid, vmsize);
+        // // strcpy(response,result);
+
+        // //---------test-----------
+        // write(1, " test21", 7);
+        // write(1, response, strlen(response));
+        // write(1, " ", 1);
+        // //------------------------
+    }
+    else
+        strcpy(response, "ERR at pid_existence_check!");
 }
 
 int main(void)
@@ -287,12 +369,70 @@ int main(void)
                         write(fifo_out, message, strlen(message));
                     }
                 }
-                else //------------------------------------------------------"get-proc-info : pid"
+                else //------------------------------------------------------"get-proc-info : pid" --- 80% DONE!
                     if (strncmp(command, "get-proc", 8) == 0)
                     {
                         if (logged)
-                        {
-                            //????????????????????????????????????????????????????????????????
+                        { // PID: 1876, 213, 2613
+                            int sockets[2], pid;
+                            socketpair(AF_UNIX, SOCK_STREAM, 0, sockets);
+                            pid = fork();
+
+                            if (pid)
+                            {                      // parent
+                                close(sockets[0]); // close child's socket
+
+                                write(sockets[1], command, strlen(command));
+                                int len = read(sockets[1], response, 1024);
+                                response[len] = '\0';
+
+                                // if (length_validation(response))
+                                // {
+                                //     char *message = &response[2];
+                                //     write(fifo_out, message, strlen(message));
+                                // }
+                                // else
+                                // {
+                                //     char *message = "ERR at get-proc-info!";
+                                //     write(fifo_out, message, strlen(message));
+                                // }
+                                char *message = &response[2];
+                                write(fifo_out, message, strlen(message));
+
+                                close(sockets[1]); // close descriptor when no longer needed
+                            }
+                            else
+                            {                      // child
+                                close(sockets[1]); // close parent's socket
+                                char command_from_parent[1024];
+
+                                int len = read(sockets[0], command_from_parent, 1024);
+                                command_from_parent[len] = '\0';
+
+                                char *pid_from_command = &command_from_parent[17];
+
+                                //--------test--------------
+                                // printf(" test4:%s", pid_from_command);
+                                //---------------------------
+
+                                pid_existence_check(pid_from_command, response); // TO_DO: verif functia! --- DONE!
+
+                                // ---TO DO: Solve the problem! Lil problem in there... !!
+
+                                // char *final_response;
+                                // final_response[0] = '\0';
+                                // char ch[10];
+                                // int len2=strlen(response);
+                                // sprintf(ch, "%d", len2);
+                                // strcpy(final_response, ch);
+                                // strcat(final_response,":");
+                                // strcat(final_response,response);
+
+                                write(sockets[0], response, strlen(response));
+
+                                close(sockets[0]);
+                                exit(1);
+                            }
                         }
                         else
                         {
@@ -320,7 +460,7 @@ int main(void)
                         }
                         else
                         {
-                            char *message = "Wrong command! Try again!";
+                            char *message = "Wrong command! Try again!\nYou have to write one of the following commands:\n->    get-logged-users\n->    get-proc-info : pid\n->    logout\n->    quit";
                             write(fifo_out, message, strlen(message));
                         }
     }
