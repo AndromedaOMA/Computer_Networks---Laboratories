@@ -1,3 +1,9 @@
+/*
+Convention:
+    1. client_0 = charitable organization/people in need
+    2. client_1 = restaurants/shops
+*/
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -23,83 +29,58 @@ int main(int argc, char *argv[])
     /* exista toate argumentele in linia de comanda? */
     if (argc != 4)
     {
-        printf("Sintaxa: %s <adresa_server> <port> <role>\n", argv[0]);
+        printf("Sintax: %s <server_adress> <port> <role>\n", argv[0]);
         return -1;
     }
 
     /* cream socketul */
     if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
-        perror("Eroare la socket().\n");
+        perror("Error at the socket() function!\n");
         return errno;
     }
 
     /* umplem structura folosita pentru realizarea conexiunii cu serverul */
-    /* familia socket-ului */
-    server.sin_family = AF_INET;
-    /* adresa IP a serverului */
-    server.sin_addr.s_addr = inet_addr(argv[1]);
-    /* portul de conectare */
-    server.sin_port = htons(atoi(argv[2]));
+    server.sin_family = AF_INET;                 // familia socket-ului
+    server.sin_addr.s_addr = inet_addr(argv[1]); // adresa IP a serverului
+    server.sin_port = htons(atoi(argv[2]));      // portul de conectare
 
-    //=========================================================================================================================================
+    //========================================================================================================================================= Role selection (0/1)
 
-    //-----------------------------------------------> Role selection (0/1)
     if (atoi(argv[3]) == 0)
     { //-----------------------------------------------> 0 for charitable organization/people in need [client_0]
         /* ne conectam la server */
         if (connect(sd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1)
         {
-            perror("[client]Eroare la connect().\n");
+            perror("[client]Error at the connect() function!\n\n");
             return errno;
         }
 
         /* citirea mesajului */
-        printf("[client_0]Salut! Te-ai conectat cu succes!\n");
+        printf("[client_0]Hello! You have successfully logged in!\n\n");
 
         nr = 0;
         if (write(sd, &nr, sizeof(int)) <= 0)
         {
-            perror("[client_0]Eroare la write() spre server.\n");
+            perror("[client_0]Error at the write() function!\n\n");
             return errno;
         }
 
         char fd_context[2048];
         if (read(sd, &fd_context, sizeof(fd_context)) < 0)
         {
-            perror("[client_0]Eroare la read() de la server.\n");
+            perror("[client_0]Error at the read() function!\n\n");
             return errno;
         }
-        printf("[client_0]Astazi avem urmatoarea lista de donatii disponibile:\n");
+
+        printf("[client_0]Today we have the following list of available donations:\n");
         printf("%s\n", fd_context);
 
+        // printf("[client_0]Alegeti un numarul corespunzator donatiei dorite:\n");
+        // int value;
+        // read(0, value, sizeof(int));
+
         printf("\n");
-
-        //--------------------------------------------------------------------------------------------
-        // printf("[client_0]Introduceti un numar: ");
-        // fflush(stdout);
-        // read(0, buf, sizeof(buf));
-        // nr = atoi(buf);
-        // // scanf("%d",&nr);
-
-        // printf("[client_0] Am citit %d\n", nr);
-
-        // /* trimiterea mesajului la server */
-        // if (write(sd, &nr, sizeof(int)) <= 0)
-        // {
-        //     perror("[client_0]Eroare la write() spre server.\n");
-        //     return errno;
-        // }
-
-        // /* citirea raspunsului dat de server
-        //    (apel blocant pina cind serverul raspunde) */
-        // if (read(sd, &nr, sizeof(int)) < 0)
-        // {
-        //     perror("[client_0]Eroare la read() de la server.\n");
-        //     return errno;
-        // }
-        // /* afisam mesajul primit */
-        // printf("[client_0]Mesajul primit este: %d\n", nr);
 
         // /* inchidem conexiunea, am terminat */
     }
@@ -108,51 +89,36 @@ int main(int argc, char *argv[])
         /* ne conectam la server */
         if (connect(sd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1)
         {
-            perror("[client]Eroare la connect().\n");
+            perror("[client]Error at the connect() function!\n\n");
             return errno;
         }
 
+        printf("[client_1]Hello! You have successfully logged in!\n\n");
         /* citirea mesajului */
-        printf("[client_1]Salut! Te-ai conectat cu succes!\n");
 
         nr = 1;
         if (write(sd, &nr, sizeof(int)) <= 0)
         {
-            perror("[client_0]Eroare la write() spre server.\n");
+            perror("[client_1]Error at the write() function!\n\n");
             return errno;
         }
 
+        char fd_context[2048];
+        if (read(sd, &fd_context, sizeof(fd_context)) < 0)
+        {
+            perror("[client_1]Error at the read() function!\n\n");
+            return errno;
+        }
+
+        printf("[client_1]You have the request to offer the donation:\n");
+        printf("%s\n", fd_context);
+
         printf("\n");
 
-        // printf("[client_1]Introduceti un numar: ");
-        // fflush(stdout);
-        // read(0, buf, sizeof(buf));
-        // nr = atoi(buf);
-        // // scanf("%d",&nr);
-
-        // printf("[client_1] Am citit %d\n", nr);
-
-        // /* trimiterea mesajului la server */
-        // if (write(sd, &nr, sizeof(int)) <= 0)
-        // {
-        //     perror("[client_1]Eroare la write() spre server.\n");
-        //     return errno;
-        // }
-
-        // /* citirea raspunsului dat de server
-        //    (apel blocant pina cind serverul raspunde) */
-        // if (read(sd, &nr, sizeof(int)) < 0)
-        // {
-        //     perror("[client_1]Eroare la read() de la server.\n");
-        //     return errno;
-        // }
-        // /* afisam mesajul primit */
-        // printf("[client_1]Mesajul primit este: %d\n", nr);
-
-        // /* inchidem conexiunea, am terminat */
+        /* inchidem conexiunea, am terminat */
     }
     else
-        printf("Pentru a selecta un rol, trebuie sa scrieti 0 daca sunteti o organizatie caritabila sau 1 daca sunteti un restaurant\n\n");
+        printf("<role> = 0 if you are a charity or a person in need / 1 if you are a restaurant or shop!\n\n");
 
     close(sd);
 }
