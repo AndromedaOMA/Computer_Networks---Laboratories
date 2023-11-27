@@ -21,16 +21,20 @@ typedef struct thData
     int cl;       // descriptorul intors de accept
 } thData;
 
-static void *treat(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii */
-void raspunde(void *);
+static void *treat_client(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii */
+void raspunde_client(void *);
+
+static void *treat_server(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii */
+void raspunde_server(void *);
+
+//========================================================================================================================================= main code
 
 int main()
 {
     struct sockaddr_in server; // structura folosita de server
     struct sockaddr_in from;
-    int nr; // mesajul primit de trimis la client
-    int sd; // descriptorul de socket
-    int pid;
+    int nr;            // mesajul primit de trimis la client
+    int sd;            // descriptorul de socket
     pthread_t th[100]; // Identificatorii thread-urilor care se vor crea
     int i = 0;
 
@@ -50,12 +54,9 @@ int main()
     bzero(&from, sizeof(from));
 
     /* umplem structura folosita de server */
-    /* stabilirea familiei de socket-uri */
-    server.sin_family = AF_INET;
-    /* acceptam orice adresa */
-    server.sin_addr.s_addr = htonl(INADDR_ANY);
-    /* utilizam un port utilizator */
-    server.sin_port = htons(PORT);
+    server.sin_family = AF_INET;                // stabilirea familiei de socket-uri
+    server.sin_addr.s_addr = htonl(INADDR_ANY); // acceptam orice adresa
+    server.sin_port = htons(PORT);              // utilizam un port utilizator
 
     /* atasam socketul */
     if (bind(sd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1)
@@ -71,7 +72,7 @@ int main()
         return errno;
     }
 
-    //=========================================================================================================================================
+    //========================================================================================================================================= second main code
 
     /* servim in mod concurent clientii...folosind thread-uri */
     while (1)
@@ -100,58 +101,71 @@ int main()
         td->idThread = i++;
         td->cl = client;
 
-        pthread_create(&th[i], NULL, &treat, td);
+        struct thData tdL;
+        tdL = *((struct thData *)td);
+        int nr, i = 0;
+
+        if (read(tdL.cl, &nr, sizeof(int)) <= 0)
+        {
+            printf("[Thread %d]\n", tdL.idThread);
+            perror("Eroare la read() de la client.\n");
+        }
+        if (nr == 0)
+            pthread_create(&th[i], NULL, &treat_client, td);
+        else
+            pthread_create(&th[i], NULL, &treat_server, td);
     }
 };
 
-static void *treat(void *arg)
+//========================================================================================================================================= client code
+
+static void *treat_client(void *arg)
 {
     struct thData tdL;
     tdL = *((struct thData *)arg);
     fflush(stdout);
     pthread_detach(pthread_self());
-    raspunde((struct thData *)arg);
+    raspunde_client((struct thData *)arg);
     /* am terminat cu acest client, inchidem conexiunea */
     close((intptr_t)arg);
     return (NULL);
 };
 
-void raspunde(void *arg)
+void raspunde_client(void *arg)
 {
     int nr, i = 0;
     struct thData tdL;
     tdL = *((struct thData *)arg);
 
-    if (read(tdL.cl, &nr, sizeof(int)) <= 0)
+    printf("[Thread %d]Mesajul de la [client_0] a fost receptionat...\n", tdL.idThread);
+
+    /*pregatim mesajul de raspuns */
+
+    char buffer[1024];
+    size_t bytesRead;
+    FILE *file = fopen("Donations.txt", "r"); // open a file
+
+    bytesRead = fread(buffer, 1, sizeof(buffer), file);
+    if (bytesRead <= 0)
     {
-        printf("[Thread %d]\n", tdL.idThread);
-        perror("Eroare la read() de la client.\n");
-    }
-
-    if (nr == 0)
-    {
-        printf("[Thread %d]Mesajul de la [client_0] a fost receptionat...\n", tdL.idThread);
-
-        /*pregatim mesajul de raspuns */
-
-        char buffer[1024];
-        size_t bytesRead;
-        FILE *file = fopen("Donations.txt", "r"); // open a file
-
-
-        bytesRead = fread(buffer, 1, sizeof(buffer), file);
-        if (bytesRead <= 0)
+        char *msg = "Din pacate lista este goala...";
+        strcpy(buffer, msg);
+        if (write(tdL.cl, buffer, strlen(msg)) <= 0)
         {
-            char *msg = "Din pacate lista este goala...";
-            strcpy(buffer, msg);
-            if (write(tdL.cl, buffer, strlen(msg)) <= 0)
-            {
-                perror("[Thread]Eroare la write() catre client.\n");
-                fclose(file);
-                return;
-            }
+            perror("[Thread]Eroare la write() catre client.\n");
+            fclose(file);
+            return;
         }
-        else
+    }
+    else
+    {
+        if (write(tdL.cl, buffer, bytesRead) <= 0)
+        {
+            perror("[Thread]Eroare la write() catre client.\n\n");
+            fclose(file);
+            return;
+        }
+        while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0)
         {
             if (write(tdL.cl, buffer, bytesRead) <= 0)
             {
@@ -159,37 +173,78 @@ void raspunde(void *arg)
                 fclose(file);
                 return;
             }
-            while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0)
-            {
-                if (write(tdL.cl, buffer, bytesRead) <= 0)
-                {
-                    perror("[Thread]Eroare la write() catre client.\n\n");
-                    fclose(file);
-                    return;
-                }
-            }
         }
-        // printf("[thread]- %d - Asteptam mesajul...\n", tdL.idThread);
-
-        // printf("[Thread %d]Trimitem mesajul inapoi...\n\n", tdL.idThread);
     }
-    else
-    {
+    // printf("[thread]- %d - Asteptam mesajul...\n", tdL.idThread);
+    // printf("[Thread %d]Trimitem mesajul inapoi...\n\n", tdL.idThread);
 
-        printf("[Thread %d]Mesajul de la [client_1] a fost receptionat...\n", tdL.idThread);
-        printf("[Thread %d]Trimitem mesajul inapoi...  TO BE CONTINUED\n\n", tdL.idThread);
-
-        // /*pregatim mesajul de raspuns */
-        // nr++;
-        // printf("[Thread %d]Trimitem mesajul inapoi...%d\n", tdL.idThread, nr);
-
-        // /* returnam mesajul clientului */
-        // if (write(tdL.cl, &nr, sizeof(int)) <= 0)
-        // {
-        //     printf("[Thread %d] ", tdL.idThread);
-        //     perror("[Thread]Eroare la write() catre client.\n");
-        // }
-        // else
-        //     printf("[Thread %d]Mesajul a fost trasmis cu succes.\n", tdL.idThread);
-    }
+    // printf("[Thread %d]Mesajul de la [client_1] a fost receptionat...\n", tdL.idThread);
+    // printf("[Thread %d]Trimitem mesajul inapoi...  TO BE CONTINUED\n\n", tdL.idThread);
 }
+
+//========================================================================================================================================= server code
+
+static void *treat_server(void *arg)
+{
+    struct thData tdL;
+    tdL = *((struct thData *)arg);
+    fflush(stdout);
+    pthread_detach(pthread_self());
+    raspunde_server((struct thData *)arg);
+    /* am terminat cu acest client, inchidem conexiunea */
+    close((intptr_t)arg);
+    return (NULL);
+};
+
+void raspunde_server(void *arg)
+{
+    // int nr, i = 0;
+    struct thData tdL;
+    tdL = *((struct thData *)arg);
+
+    // printf("[Thread %d]Mesajul de la [client_0] a fost receptionat...\n", tdL.idThread);
+
+    // /*pregatim mesajul de raspuns */
+
+    // char buffer[1024];
+    // size_t bytesRead;
+    // FILE *file = fopen("Donations.txt", "r"); // open a file
+
+    // bytesRead = fread(buffer, 1, sizeof(buffer), file);
+    // if (bytesRead <= 0)
+    // {
+    //     char *msg = "Din pacate lista este goala...";
+    //     strcpy(buffer, msg);
+    //     if (write(tdL.cl, buffer, strlen(msg)) <= 0)
+    //     {
+    //         perror("[Thread]Eroare la write() catre client.\n");
+    //         fclose(file);
+    //         return;
+    //     }
+    // }
+    // else
+    // {
+    //     if (write(tdL.cl, buffer, bytesRead) <= 0)
+    //     {
+    //         perror("[Thread]Eroare la write() catre client.\n\n");
+    //         fclose(file);
+    //         return;
+    //     }
+    //     while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0)
+    //     {
+    //         if (write(tdL.cl, buffer, bytesRead) <= 0)
+    //         {
+    //             perror("[Thread]Eroare la write() catre client.\n\n");
+    //             fclose(file);
+    //             return;
+    //         }
+    //     }
+    // }
+
+    printf("[Thread %d]Mesajul de la [client_1] a fost receptionat...\n", tdL.idThread);
+    printf("[Thread %d]Trimitem mesajul inapoi...  TO BE CONTINUED\n\n", tdL.idThread);
+
+    // printf("[thread]- %d - Asteptam mesajul...\n", tdL.idThread);
+    // printf("[Thread %d]Trimitem mesajul inapoi...\n\n", tdL.idThread);
+}
+//=========================================================================================================================================
