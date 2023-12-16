@@ -14,6 +14,7 @@ Convention:
 #include <stdlib.h>
 #include <signal.h>
 #include <pthread.h>
+#include <string>
 
 /* portul folosit */
 #define PORT 2910
@@ -85,7 +86,7 @@ int main()
     {
         int client;
         thData *td; // parametru functia executata de thread
-        int length = sizeof(from);
+        unsigned int length = sizeof(from);
 
         printf("[server]I'm waiting at the port %d...\n\n", PORT);
         fflush(stdout);
@@ -146,12 +147,13 @@ void response_client_0(void *arg)
     size_t bytesRead;
     FILE *file = fopen("Donations.txt", "r"); // open a file
 
+
     bytesRead = fread(buffer, 1, sizeof(buffer), file);
     if (bytesRead <= 0)
     {
-        char *msg = "Unfortunately, the list of donations is empty...";
-        strcpy(buffer, msg);
-        if (write(tdL.cl, buffer, strlen(msg)) <= 0)
+        std::string msg = "Unfortunately, the list of donations is empty...";
+        buffer==msg;
+        if (write(tdL.cl, buffer, msg.length()) <= 0)
         {
             perror("[Thread]Error at the write() function!\n\n");
             fclose(file);
@@ -162,7 +164,7 @@ void response_client_0(void *arg)
     {
         if (write(tdL.cl, buffer, bytesRead) <= 0)
         {
-            perror("[Thread]Error at the write() function!n\n\n");
+            perror("[Thread]Error at the write() function!\n\n");
             fclose(file);
             return;
         }
@@ -176,11 +178,6 @@ void response_client_0(void *arg)
             }
         }
     }
-    // printf("[thread]- %d - Asteptam mesajul...\n", tdL.idThread);
-    // printf("[Thread %d]Trimitem mesajul inapoi...\n\n", tdL.idThread);
-
-    // printf("[Thread %d]Mesajul de la [client_1] a fost receptionat...\n", tdL.idThread);
-    // printf("[Thread %d]Trimitem mesajul inapoi...  TO BE CONTINUED\n\n", tdL.idThread);
 }
 
 //========================================================================================================================================= client_1 code
