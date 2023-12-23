@@ -16,8 +16,49 @@ Convention:
 #include <pthread.h>
 #include <string>
 
+#include <tuple>
+// #include <mariadb/conncpp.hpp>
+#include <mariadb/mysql.h>
+
 /* portul folosit */
 #define PORT 2910
+
+/*clasa/structura conectiunii C++-MariaDB*/
+class SQLConnection
+{
+private:
+    MYSQL *connection;
+    std::string server, user, password, database;
+
+public:
+    SQLConnection(std::string server, std::string user, std::string password, std::string database)
+    {
+        this->server = server;
+        this->user = user;
+        this->password = password;
+        this->database = database;
+
+        connection = mysql_init(NULL);
+
+        if (!connection)
+        {
+            fprintf(stderr, "Connection initialization failed!\n");
+            exit(1);
+        }
+
+        if (!mysql_real_connect(connection, server.c_str(), user.c_str(), password.c_str(), database.c_str(), 0, NULL, 0))
+        {
+            fprintf(stderr, "Connection failed!\n");
+            exit(1);
+        }
+    }
+
+    ~SQLConnection()
+    {
+        if (connection)
+            mysql_close(connection);
+    }
+};
 
 /* codul de eroare returnat de anumite apeluri */
 extern int errno;
@@ -80,6 +121,10 @@ int main()
     }
 
     //========================================================================================================================================= second main code
+
+    SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
+
+    //=========================================================================================================================================
 
     /* servim in mod concurent clientii...folosind thread-uri */
     while (1)
@@ -147,12 +192,11 @@ void response_client_0(void *arg)
     size_t bytesRead;
     FILE *file = fopen("Donations.txt", "r"); // open a file
 
-
     bytesRead = fread(buffer, 1, sizeof(buffer), file);
     if (bytesRead <= 0)
     {
         std::string msg = "Unfortunately, the list of donations is empty...";
-        buffer==msg;
+        buffer == msg;
         if (write(tdL.cl, buffer, msg.length()) <= 0)
         {
             perror("[Thread]Error at the write() function!\n\n");
