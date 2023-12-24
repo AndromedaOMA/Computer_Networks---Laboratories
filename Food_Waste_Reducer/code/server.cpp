@@ -15,6 +15,7 @@ Convention:
 #include <signal.h>
 #include <pthread.h>
 #include <string>
+#include <sstream>
 
 #include <tuple>
 // #include <mariadb/conncpp.hpp>
@@ -58,7 +59,30 @@ public:
         if (connection)
             mysql_close(connection);
     }
+
+    MYSQL *getConnection()
+    {
+        return connection;
+    }
 };
+
+auto execSQLQuery(MYSQL *connection, std::string query)
+{
+    if (mysql_query(connection, query.c_str()))
+    {
+        fprintf(stderr, "Query execution failed!\n");
+        exit(1);
+    }
+
+    MYSQL_RES *result = mysql_store_result(connection);
+    if (!result)
+    {
+        fprintf(stderr, "Query result failed!\n");
+        exit(1);
+    }
+
+    return std::make_tuple(result, mysql_num_rows(result), mysql_num_fields(result));
+}
 
 /* codul de eroare returnat de anumite apeluri */
 extern int errno;
@@ -120,11 +144,33 @@ int main()
         return errno;
     }
 
-    //========================================================================================================================================= second main code
+    //=========================================MariaDB=======================================================================================
 
-    SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
+    /* EXAMPLE OF QUERY
 
-    //=========================================================================================================================================
+        SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
+
+        auto result=execSQLQuery(SQLDetails.getConnection(), "SELECT * FROM Donations");
+
+        // Unpack the tuple
+        MYSQL_RES *resultSet;
+        unsigned long numRows, numFields;
+        std::tie(resultSet, numRows, numFields) = result;
+
+        // Print the result
+        printf("Number of Rows: %lu\n", numRows);
+        printf("Number of Fields: %lu\n", numFields);
+
+        MYSQL_ROW row;
+        while(row = mysql_fetch_row(resultSet))
+        {
+            printf("ID_Donation: %s | ID0: %s | ID1: %s\n", row[0], row[1], row[2]);
+        }
+
+        mysql_free_result(resultSet);
+    */
+
+    //====================================================================================================================== second main code
 
     /* servim in mod concurent clientii...folosind thread-uri */
     while (1)
@@ -186,42 +232,80 @@ void response_client_0(void *arg)
 
     printf("[Thread %d]The message from [client_0] has been received...\n\n", tdL.idThread);
 
-    /*pregatim mesajul de raspuns */
+    SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
 
-    char buffer[1024];
-    size_t bytesRead;
-    FILE *file = fopen("Donations.txt", "r"); // open a file
+    auto result = execSQLQuery(SQLDetails.getConnection(), "SELECT * FROM Products");
 
-    bytesRead = fread(buffer, 1, sizeof(buffer), file);
-    if (bytesRead <= 0)
+    // Unpack the tuple
+    MYSQL_RES *resultSet;
+    unsigned long numRows, numFields;
+    std::tie(resultSet, numRows, numFields) = result;
+
+    // Print the result
+    if (numRows == 0)
     {
         std::string msg = "Unfortunately, the list of donations is empty...";
+        char buffer[1024];
         buffer == msg;
-        if (write(tdL.cl, buffer, msg.length()) <= 0)
+        if (write(tdL.cl, msg.c_str(), msg.length()) <= 0)
         {
             perror("[Thread]Error at the write() function!\n\n");
-            fclose(file);
             return;
         }
     }
     else
     {
-        if (write(tdL.cl, buffer, bytesRead) <= 0)
+        printf("Number of Rows: %lu\n", numRows);
+        printf("Number of Fields: %lu\n", numFields);
+
+        MYSQL_ROW row;
+        while (row = mysql_fetch_row(resultSet))
         {
-            perror("[Thread]Error at the write() function!\n\n");
-            fclose(file);
-            return;
+            std::stringstream buffer;
+            buffer << "ID_Product: " << row[0] << " | ID_Donation: " << row[1] << " | Type: " << row[2] << " | Amount: " << row[3] << "\n";
+            std::string result = buffer.str();
+            write(tdL.cl, result.c_str(), result.size());
         }
-        while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0)
-        {
-            if (write(tdL.cl, buffer, bytesRead) <= 0)
-            {
-                perror("[Thread]Error at the write() function!\n\n");
-                fclose(file);
-                return;
-            }
-        }
+
+        mysql_free_result(resultSet);
     }
+
+    /*pregatim mesajul de raspuns */
+
+    // char buffer[1024];
+    // size_t bytesRead;
+    // FILE *file = fopen("Donations.txt", "r"); // open a file
+
+    // bytesRead = fread(buffer, 1, sizeof(buffer), file);
+    // if (bytesRead <= 0)
+    // {
+    //     std::string msg = "Unfortunately, the list of donations is empty...";
+    //     buffer == msg;
+    //     if (write(tdL.cl, buffer, msg.length()) <= 0)
+    //     {
+    //         perror("[Thread]Error at the write() function!\n\n");
+    //         fclose(file);
+    //         return;
+    //     }
+    // }
+    // else
+    // {
+    //     if (write(tdL.cl, buffer, bytesRead) <= 0)
+    //     {
+    //         perror("[Thread]Error at the write() function!\n\n");
+    //         fclose(file);
+    //         return;
+    //     }
+    //     while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0)
+    //     {
+    //         if (write(tdL.cl, buffer, bytesRead) <= 0)
+    //         {
+    //             perror("[Thread]Error at the write() function!\n\n");
+    //             fclose(file);
+    //             return;
+    //         }
+    //     }
+    // }
 }
 
 //========================================================================================================================================= client_1 code
