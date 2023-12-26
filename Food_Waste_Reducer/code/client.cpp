@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
             return errno;
         }
 
-        char fd_context[2048];
+        char fd_context[100000];
         if (read(sd, &fd_context, sizeof(fd_context)) < 0)
         {
             perror("[client_0]Error at the read() function!\n\n");
@@ -76,13 +76,39 @@ int main(int argc, char *argv[])
         printf("[client_0]Today we have the following list of available donations:\n");
         printf("%s\n", fd_context);
 
-        // printf("[client_0]Alegeti un numarul corespunzator donatiei dorite:\n");
-        // int value;
-        // read(0, value, sizeof(int));
+//----------------------------------------------------------------------------------------------------------------------------------------- Donation selection
+        
+        printf("[client_0]Choose a number corresponding to the desired donation:\n");
+        int value;
 
-        printf("\n");
+        if (read(0, &value, sizeof(int)) < 0)
+        {
+            perror("[client_0]Error at the read() function!\n\n");
+            return errno;
+        }
 
-        // /* inchidem conexiunea, am terminat */
+        if (write(sd, &value, sizeof(int)) <= 0)
+        {
+            perror("[client_0]Error at the write() function!\n\n");
+            return errno;
+        }
+
+        printf("[client_0]Waiting for the server response...\n");
+
+        char fd_context_2[100000];
+        if (read(sd, &fd_context_2, sizeof(fd_context_2)) < 0)
+        {
+            perror("[client_0]Error at the read() function!\n\n");
+            return errno;
+        }
+
+        printf("[client_0] Waiting for the accept/refuse of the client_1...\n");
+        sleep(2);
+        printf("[client_0] below you will see the selected donation:\n");
+        printf("%s\n", fd_context_2);
+
+        printf("\n");   
+        /* inchidem conexiunea, am terminat */
     }
     else if (atoi(argv[3]) == 1)
     { //-----------------------------------------------> 1 for restaurants/shops [client_1]

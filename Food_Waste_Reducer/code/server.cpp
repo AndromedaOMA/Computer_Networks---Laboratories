@@ -95,6 +95,7 @@ typedef struct thData
 
 static void *treat_client_0(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii client_0*/
 void response_client_0(void *);
+void request_sent(void *);
 
 static void *treat_client_1(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii client_1*/
 void response_client_1(void *);
@@ -219,6 +220,9 @@ static void *treat_client_0(void *arg)
     fflush(stdout);
     pthread_detach(pthread_self());
     response_client_0((struct thData *)arg);
+    //------------------------------------------
+    request_sent((struct thData *)arg);
+    //------------------------------------------
     /* am terminat cu acest client, inchidem conexiunea */
     close((intptr_t)arg);
     return (NULL);
@@ -233,7 +237,6 @@ void response_client_0(void *arg)
     printf("[Thread %d]The message from [client_0] has been received...\n\n", tdL.idThread);
 
     SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
-
     auto result = execSQLQuery(SQLDetails.getConnection(), "SELECT * FROM Products");
 
     // Unpack the tuple
@@ -308,6 +311,61 @@ void response_client_0(void *arg)
     // }
 }
 
+void request_sent(void *arg)
+{
+    struct thData tdL;
+    tdL = *((struct thData *)arg);
+    int donation_value, i = 0;
+
+    if (read(tdL.cl, &donation_value, sizeof(int)) <= 0)
+    {
+        printf("[Thread %d]\n", tdL.idThread);
+        perror("Error at the read() function!\n\n");
+    }
+
+    printf("[Thread %d]The message from [client_0] has been received...\n\n", tdL.idThread);
+
+    SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
+    std::ostringstream queryStream; // Create a parameterized query
+    queryStream << "SELECT * FROM FWR_DB.Products WHERE ID_Donation = " << donation_value;
+    auto result = execSQLQuery(SQLDetails.getConnection(), queryStream.str());
+
+    // Unpack the tuple
+    MYSQL_RES *resultSet;
+    unsigned long numRows, numFields;
+    std::tie(resultSet, numRows, numFields) = result;
+
+    // Print the result
+    if (numRows == 0)
+    {
+        std::string msg = "Unfortunately, there is no donation with the value selected...";
+        char buffer[1024];
+        buffer == msg;
+        if (write(tdL.cl, msg.c_str(), msg.length()) <= 0)
+        {
+            perror("[Thread]Error at the write() function!\n\n");
+            return;
+        }
+    }
+    else
+    {
+        printf("test\n");
+        printf("Number of Rows: %lu\n", numRows);
+        printf("Number of Fields: %lu\n", numFields);
+
+        MYSQL_ROW row;
+        while (row = mysql_fetch_row(resultSet))
+        {
+            std::stringstream buffer;
+            buffer << "ID_Product: " << row[0] << " | ID_Donation: " << row[1] << " | Type: " << row[2] << " | Amount: " << row[3] << "\n";
+            std::string result = buffer.str();
+            write(tdL.cl, result.c_str(), result.size());
+        }
+
+        mysql_free_result(resultSet);
+    }
+}
+
 //========================================================================================================================================= client_1 code
 
 static void *treat_client_1(void *arg)
@@ -317,6 +375,7 @@ static void *treat_client_1(void *arg)
     fflush(stdout);
     pthread_detach(pthread_self());
     response_client_1((struct thData *)arg);
+    //------------------------------------------
     /* am terminat cu acest client, inchidem conexiunea */
     close((intptr_t)arg);
     return (NULL);

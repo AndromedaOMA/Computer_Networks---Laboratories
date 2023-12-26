@@ -55,3 +55,5 @@ SELECT * FROM FWR_DB.client0;
 SELECT * FROM FWR_DB.client1;
 SELECT * FROM FWR_DB.Donations;
 SELECT * FROM FWR_DB.Products;
+
+SELECT * FROM FWR_DB.Products WHERE ID_Donation = 1;
