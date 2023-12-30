@@ -3,7 +3,8 @@ Convention:
     1. client_0 = charitable organization/people in need
     2. client_1 = restaurants/shops
 */
-
+#include <iostream>
+#include <vector>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -22,7 +23,11 @@ Convention:
 #include <mariadb/mysql.h>
 
 /* portul folosit */
-#define PORT 2910
+#define PORT 2222
+int OK;
+
+// Declare mutex globally
+// pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /*clasa/structura conectiunii C++-MariaDB*/
 class SQLConnection
@@ -66,7 +71,65 @@ public:
     }
 };
 
-auto execSQLQuery(MYSQL *connection, std::string query)
+auto exec_Parametrized_SQL_Query(MYSQL *connection, const std::string &query, const std::vector<std::string> &parameters)
+{
+    // Source: https://dev.mysql.com/doc/c-api/5.7/en/mysql-stmt-bind-param.html
+
+    // Initialize a MySQL statement
+    MYSQL_STMT *stmt = mysql_stmt_init(connection);
+    if (!stmt)
+    {
+        printf("Statement initialization failed!\n");
+        exit(1);
+    }
+
+    // Prepare the SQL statement
+    if (mysql_stmt_prepare(stmt, query.c_str(), query.size()))
+    {
+        printf("Statement preparation failed!\n");
+        exit(1);
+    }
+
+    // Bind parameters if there are any
+    if (!parameters.empty())
+    {
+        MYSQL_BIND bind[parameters.size()]{};
+
+        for (size_t i = 0; i < parameters.size(); ++i)
+        {
+            bind[i].buffer_type = MYSQL_TYPE_STRING;
+            bind[i].buffer = (void *)parameters[i].c_str();
+            bind[i].buffer_length = parameters[i].size();
+        }
+
+        if (mysql_stmt_bind_param(stmt, bind))
+        {
+            printf("Parameter binding failed!\n");
+            exit(1);
+        }
+    }
+
+    // Execute the SQL statement
+    if (mysql_stmt_execute(stmt))
+    {
+        printf("\nExecuting query: %s\n", query.c_str());
+        printf("Statement execution failed: %s\n", mysql_stmt_error(stmt));
+        exit(1);
+    }
+
+    // Retrieve the result set
+    MYSQL_RES *result = mysql_store_result(connection);
+    if (!result && mysql_errno(connection))
+    {
+        printf("Query result failed: %s\n", mysql_error(connection));
+        exit(1);
+    }
+
+    // Return a tuple containing the result set, number of rows, and number of fields
+    return std::make_tuple(result, mysql_num_rows(result), mysql_num_fields(result));
+}
+//=================----------------------------======================
+auto exec_SQL_Query(MYSQL *connection, std::string query)
 {
     if (mysql_query(connection, query.c_str()))
     {
@@ -85,7 +148,7 @@ auto execSQLQuery(MYSQL *connection, std::string query)
 }
 
 /* codul de eroare returnat de anumite apeluri */
-extern int errno;
+// extern int errno;
 
 typedef struct thData
 {
@@ -109,7 +172,7 @@ int main()
     int nr;            // mesajul primit de trimis la client
     int sd;            // descriptorul de socket
     pthread_t th[100]; // Identificatorii thread-urilor care se vor crea
-    int i = 0;
+    int i = -1;
 
     /* crearea unui socket */
     if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
@@ -151,7 +214,7 @@ int main()
 
         SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
 
-        auto result=execSQLQuery(SQLDetails.getConnection(), "SELECT * FROM Donations");
+        auto result=exec_SQL_Query(SQLDetails.getConnection(), "SELECT * FROM Donations");
 
         // Unpack the tuple
         MYSQL_RES *resultSet;
@@ -215,13 +278,13 @@ int main()
 
 static void *treat_client_0(void *arg)
 {
-    struct thData tdL;
-    tdL = *((struct thData *)arg);
+    struct thData *tdL = (struct thData *)arg;
     fflush(stdout);
     pthread_detach(pthread_self());
     response_client_0((struct thData *)arg);
     //------------------------------------------
-    request_sent((struct thData *)arg);
+    if (OK)
+        request_sent((struct thData *)arg);
     //------------------------------------------
     /* am terminat cu acest client, inchidem conexiunea */
     close((intptr_t)arg);
@@ -237,7 +300,7 @@ void response_client_0(void *arg)
     printf("[Thread %d]The message from [client_0] has been received...\n\n", tdL.idThread);
 
     SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
-    auto result = execSQLQuery(SQLDetails.getConnection(), "SELECT * FROM Products");
+    auto result = exec_SQL_Query(SQLDetails.getConnection(), "SELECT * FROM FWR_DB.Products JOIN FWR_DB.Donations ON FWR_DB.Products.ID_Donation = FWR_DB.Donations.ID_Donation WHERE FWR_DB.Donations.ID0 IS NULL");
 
     // Unpack the tuple
     MYSQL_RES *resultSet;
@@ -247,17 +310,25 @@ void response_client_0(void *arg)
     // Print the result
     if (numRows == 0)
     {
-        std::string msg = "Unfortunately, the list of donations is empty...";
+        OK = 0;
+
+        std::string msg = "Unfortunately, the list of donations is empty... Please try again later!";
         char buffer[1024];
-        buffer == msg;
+        strcpy(buffer, msg.c_str());
+
+        // pthread_mutex_lock(&mutex);
         if (write(tdL.cl, msg.c_str(), msg.length()) <= 0)
         {
             perror("[Thread]Error at the write() function!\n\n");
             return;
         }
+        // pthread_mutex_unlock(&mutex);
     }
     else
     {
+        OK = 1;
+
+        printf("Here we have the avalable donations data:\n");
         printf("Number of Rows: %lu\n", numRows);
         printf("Number of Fields: %lu\n", numFields);
 
@@ -267,55 +338,22 @@ void response_client_0(void *arg)
             std::stringstream buffer;
             buffer << "ID_Product: " << row[0] << " | ID_Donation: " << row[1] << " | Type: " << row[2] << " | Amount: " << row[3] << "\n";
             std::string result = buffer.str();
+
+            // pthread_mutex_lock(&mutex);
             write(tdL.cl, result.c_str(), result.size());
+            // pthread_mutex_unlock(&mutex);
         }
-
-        mysql_free_result(resultSet);
     }
+    mysql_free_result(resultSet);
 
-    /*pregatim mesajul de raspuns */
-
-    // char buffer[1024];
-    // size_t bytesRead;
-    // FILE *file = fopen("Donations.txt", "r"); // open a file
-
-    // bytesRead = fread(buffer, 1, sizeof(buffer), file);
-    // if (bytesRead <= 0)
-    // {
-    //     std::string msg = "Unfortunately, the list of donations is empty...";
-    //     buffer == msg;
-    //     if (write(tdL.cl, buffer, msg.length()) <= 0)
-    //     {
-    //         perror("[Thread]Error at the write() function!\n\n");
-    //         fclose(file);
-    //         return;
-    //     }
-    // }
-    // else
-    // {
-    //     if (write(tdL.cl, buffer, bytesRead) <= 0)
-    //     {
-    //         perror("[Thread]Error at the write() function!\n\n");
-    //         fclose(file);
-    //         return;
-    //     }
-    //     while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0)
-    //     {
-    //         if (write(tdL.cl, buffer, bytesRead) <= 0)
-    //         {
-    //             perror("[Thread]Error at the write() function!\n\n");
-    //             fclose(file);
-    //             return;
-    //         }
-    //     }
-    // }
+    sleep(2);
 }
 
 void request_sent(void *arg)
 {
     struct thData tdL;
     tdL = *((struct thData *)arg);
-    int donation_value, i = 0;
+    int donation_value;
 
     if (read(tdL.cl, &donation_value, sizeof(int)) <= 0)
     {
@@ -323,50 +361,103 @@ void request_sent(void *arg)
         perror("Error at the read() function!\n\n");
     }
 
+    //----test-----------
+    // printf("\n TEST\n");
+    // printf("donation_value: %d\n", donation_value);
+    //--------------------
+
     printf("[Thread %d]The message from [client_0] has been received...\n\n", tdL.idThread);
 
     SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
-    std::ostringstream queryStream; // Create a parameterized query
-    queryStream << "SELECT * FROM FWR_DB.Products WHERE ID_Donation = " << donation_value;
-    auto result = execSQLQuery(SQLDetails.getConnection(), queryStream.str());
+    std::ostringstream queryStream_2; // Create a parameterized query
+    queryStream_2 << "SELECT * FROM Products WHERE ID_Donation = " << donation_value;
+    auto result_2 = exec_SQL_Query(SQLDetails.getConnection(), queryStream_2.str());
 
     // Unpack the tuple
-    MYSQL_RES *resultSet;
-    unsigned long numRows, numFields;
-    std::tie(resultSet, numRows, numFields) = result;
+    MYSQL_RES *resultSet_2;
+    unsigned long numRows_2, numFields_2;
+    std::tie(resultSet_2, numRows_2, numFields_2) = result_2;
 
     // Print the result
-    if (numRows == 0)
+    if (numRows_2 == 0)
     {
         std::string msg = "Unfortunately, there is no donation with the value selected...";
         char buffer[1024];
-        buffer == msg;
+        strcpy(buffer, msg.c_str());
+
+        // pthread_mutex_lock(&mutex);
         if (write(tdL.cl, msg.c_str(), msg.length()) <= 0)
         {
             perror("[Thread]Error at the write() function!\n\n");
             return;
         }
+        // pthread_mutex_unlock(&mutex);
     }
     else
     {
-        printf("test\n");
-        printf("Number of Rows: %lu\n", numRows);
-        printf("Number of Fields: %lu\n", numFields);
+        printf("Here we have the selected donation data:\n");
+        printf("Number of Rows (selected donation): %lu\n", numRows_2);
+        printf("Number of Fields (selected donation): %lu\n", numFields_2);
 
         MYSQL_ROW row;
-        while (row = mysql_fetch_row(resultSet))
+        while (row = mysql_fetch_row(resultSet_2))
         {
-            std::stringstream buffer;
-            buffer << "ID_Product: " << row[0] << " | ID_Donation: " << row[1] << " | Type: " << row[2] << " | Amount: " << row[3] << "\n";
-            std::string result = buffer.str();
-            write(tdL.cl, result.c_str(), result.size());
-        }
+            std::stringstream buffer_2;
+            buffer_2 << "ID_Product: " << row[0] << " | ID_Donation: " << row[1] << " | Type: " << row[2] << " | Amount: " << row[3] << "\n";
+            std::string result_2 = buffer_2.str();
 
-        mysql_free_result(resultSet);
+            // pthread_mutex_lock(&mutex);
+            write(tdL.cl, result_2.c_str(), result_2.size());
+            // pthread_mutex_unlock(&mutex);
+        }
+    }
+    mysql_free_result(resultSet_2);
+
+    //-----------------------
+
+    // std::ostringstream queryStream_3; // Create a parameterized query
+    // queryStream_3 << "UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = " << tdL.idThread << " "
+    //               << "WHERE FWR_DB.Donations.ID_Donation = " << donation_value;
+    // auto result_3 = exec_SQL_Query(SQLDetails.getConnection(), queryStream_3.str());
+
+    std::string queryStream_3 = "UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = ? WHERE FWR_DB.Donations.ID_Donation = ?";
+    auto id_value = tdL.idThread + 1;
+    std::vector<std::string> parameters = {std::to_string(id_value), std::to_string(donation_value)};
+
+    //-------test----------
+    printf("\n TEST\n");
+    printf("idThread: %d\n", id_value);
+    printf("donation_value: %d\n", donation_value);
+    //---------------------
+
+    try
+    {
+        auto result_3 = exec_Parametrized_SQL_Query(SQLDetails.getConnection(), queryStream_3, parameters);
+
+        // Extract information from the result tuple
+        MYSQL_RES *result = std::get<0>(result_3);
+        int numRows = std::get<1>(result_3);
+        int numFields = std::get<2>(result_3);
+        // Unpack the tuple
+        // MYSQL_RES *resultSet;
+        // unsigned long numRows, numFields;
+        // std::tie(resultSet, numRows, numFields) = result_3;
+
+        printf("UPDATE: alocate the donation to the client_0\n");
+        printf("Query executed successfully. Rows affected: %d\n", numRows);
+        printf("Query executed successfully. Fields affected: %d\n", numFields);
+
+        // Clean up resources
+        mysql_free_result(result);
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Exception: " << e.what() << std::endl;
     }
 }
 
 //========================================================================================================================================= client_1 code
+//=========================================================================================================================================
 
 static void *treat_client_1(void *arg)
 {
@@ -383,35 +474,54 @@ static void *treat_client_1(void *arg)
 
 void response_client_1(void *arg)
 {
-    // int nr, i = 0;
+    int nr, i = 0;
     struct thData tdL;
     tdL = *((struct thData *)arg);
 
     printf("[Thread %d]The message from [client_1] has been received...\n\n", tdL.idThread);
-    // printf("[thread]- %d - I'm waiting for the message...\n", tdL.idThread);
 
-    /*pregatim mesajul de raspuns */
-    char buffer[1024];
-    FILE *file = fopen("Donations.txt", "r"); // open a file
+    SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
+    auto result = exec_SQL_Query(SQLDetails.getConnection(), "SELECT * FROM FWR_DB.Donations WHERE ID0 IS NULL");
 
-    int lineNumberToRead = 3;
-    char line[1000];
-    for (int currentLine = 1; currentLine <= lineNumberToRead; ++currentLine)
-        if (fgets(line, sizeof(line), file) == NULL)
+    // Unpack the tupleD
+    MYSQL_RES *resultSet;
+    unsigned long numRows, numFields;
+    std::tie(resultSet, numRows, numFields) = result;
+
+    // Print the result
+    if (numRows == 0)
+    {
+        std::string msg = "Unfortunately, there are no avalable donations...";
+        char buffer[1024];
+        strcpy(buffer, msg.c_str());
+
+        // pthread_mutex_lock(&mutex);
+        if (write(tdL.cl, msg.c_str(), msg.length()) <= 0)
         {
-            printf("[Thread %d]The line %d does not exist in the file.\n\n", tdL.idThread, lineNumberToRead);
-            fclose(file);
+            perror("[Thread]Error at the write() function!\n\n");
             return;
         }
-
-    // Afiseaza linia citita
-    if (write(tdL.cl, line, sizeof(line)) <= 0)
-    {
-        perror("[Thread]Error at the write() function!\n\n");
-        fclose(file);
-        return;
+        // pthread_mutex_unlock(&mutex);
     }
+    else
+    {
+        printf("Number of Rows: %lu\n", numRows);
+        printf("Number of Fields: %lu\n", numFields);
 
-    // printf("[Thread %d]Trimitem mesajul inapoi...\n\n", tdL.idThread);
+        MYSQL_ROW row;
+        while (row = mysql_fetch_row(resultSet))
+        {
+            std::stringstream buffer;
+            buffer << "ID_Product: " << row[0] << " | ID_Donation: " << row[1] << " | Type: " << row[2] << " | Amount: " << row[3] << "\n";
+            std::string result = buffer.str();
+
+            // pthread_mutex_lock(&mutex);
+            write(tdL.cl, result.c_str(), result.size());
+            // pthread_mutex_unlock(&mutex);
+        }
+    }
+    mysql_free_result(resultSet);
+
+    sleep(2);
 }
 //=========================================================================================================================================
