@@ -14,6 +14,10 @@ Convention:
 #include <netdb.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <pthread.h>
+
+// Declare mutex globally
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* codul de eroare returnat de anumite apeluri */
 // extern int errno;
@@ -30,7 +34,7 @@ int main(int argc, char *argv[])
     if (argc != 4)
     {
         printf("Sintax: %s <server_adress> <port> <role>\n", argv[0]);
-        printf("Example: %s 127.0.0.1 2910 0\n", argv[0]);
+        printf("Example: %s 127.0.0.1 2222 0\n", argv[0]);
         return -1;
     }
 
@@ -53,74 +57,90 @@ int main(int argc, char *argv[])
         /* ne conectam la server */
         if (connect(sd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1)
         {
-            perror("[client]Error at the connect() function!\n\n");
+            perror("\n[client_0]Error at the connect() function!\n\n");
             return errno;
         }
 
-        printf("[client_0]Hello! You have successfully logged in!\n\n");
+        printf("\n[client_0]Hello! You have successfully logged in!\n\n");
 
+        pthread_mutex_lock(&mutex);
         nr = 0;
-        if (write(sd, &nr, sizeof(int)) <= 0)
+        if (write(sd, &nr, sizeof(int)) <= 0) // write_1 - role selected
         {
-            perror("[client_0]Error at the write() function!\n\n");
+            perror("\n[client_0]Error at the write() function!\n\n");
             return errno;
         }
+        pthread_mutex_unlock(&mutex);
 
-        char fd_context[100000];
-        if (read(sd, &fd_context, sizeof(fd_context)) < 0)
+        pthread_mutex_lock(&mutex);
+        printf("\n[client_0]Today we have the following list of available donations:\n");
+        char buffer[10000];
+        int bytesRead;
+        while ((bytesRead = read(sd, buffer, sizeof(buffer) - 1)) > 0) // read_1.1 / read_1.2 - list_of_donations
         {
-            perror("[client_0]Error at the read() function!\n\n");
+            buffer[bytesRead] = '\0';
+            if(strstr(buffer, "end") != NULL)
+                break;
+            printf("%s", buffer);
+        }
+        //---------test----
+        // printf("\n TEST:\n%s\n", buffer);
+        //-----------------
+        if (bytesRead < 0)
+        {
+            perror("\n[client_0]Error at the read() function!\n\n");
             return errno;
         }
+        pthread_mutex_unlock(&mutex);
 
-        printf("[client_0]Today we have the following list of available donations:\n");
-
-        sleep(2);
         //----------------------------------------------------------------------------------------------------------------------------------------- Donation selection
 
-        if (strcmp(fd_context, "Unfortunately, the list of donations is empty... Please try again later!") == 0)
+        printf("\n[client_0]Choose a number corresponding to the desired donation (ID_Donation):\n");
+        int value;
+
+        if (scanf("%d", &value) != 1)
         {
-            printf("%s\n", fd_context);
-            return 0;
-        }
-        else
-        {
-            printf("%s\n\n", fd_context);
-
-            printf("[client_0]Choose a number corresponding to the desired donation:\n");
-            int value;
-
-            if (scanf("%d", &value) != 1)
-            {
-                perror("[client_0]Error at the read() function!\n\n");
-                return errno;
-            }
-
-            //----test-----------
-            // printf("\n TEST\n");
-            // printf("[client_0]You have selected the donation with the number: %d\n", value);
-            //--------------------
-
-            if (write(sd, &value, sizeof(int)) <= 0)
-            {
-                perror("[client_0]Error at the write() function!\n\n");
-                return errno;
-            }
-
-            char fd_context_2[100000];
-            if (read(sd, &fd_context_2, sizeof(fd_context_2)) < 0)
-            {
-                perror("[client_0]Error at the read() function!\n\n");
-                return errno;
-            }
-
-            printf("[client_0] below you will see the selected donation anfor the accept/refuse of the client_1:\n");
-            printf("%s\n", fd_context_2);
-
-            printf("[client_0]Waiting for the server response and for the accept/refuse of the client_1...\n");
+            perror("\n[client_0]Error at the scanf() function (reading from terminal)!\n\n");
+            return errno;
         }
 
-        sleep(2);
+        //----test-----------
+        // printf("\n TEST\n");
+        printf("\n[client_0]You have selected the donation with the number: %d\n", value);
+        //--------------------
+
+        pthread_mutex_lock(&mutex);
+        if (write(sd, &value, sizeof(int)) <= 0) // write_2 - donation_value selected
+        {
+            perror("\n[client_0]Error at the write() function!\n\n");
+            return errno;
+        }
+        pthread_mutex_unlock(&mutex);
+
+        pthread_mutex_lock(&mutex);
+        printf("\n[client_0]Below you will see the selected donation:\n");
+        char buffer_2[10000];
+        int bytesRead_2;
+        while ((bytesRead_2 = read(sd, buffer_2, sizeof(buffer_2) - 1)) > 0) // read_1.1 / read_1.2 - list_of_donations
+        {
+            buffer_2[bytesRead_2] = '\0';
+            if(strstr(buffer_2, "end") != NULL)
+                break;
+            printf("%s", buffer_2);
+        }
+        //---------test----
+        // printf("\n TEST:\n%s\n", buffer_2);
+        //-----------------
+        if (bytesRead_2 < 0)
+        {
+            perror("\n[client_0]Error at the read() function!\n\n");
+            return errno;
+        }
+        pthread_mutex_unlock(&mutex);
+
+        //......
+        printf("\n[client_0]Waiting for the server response and for the accept/refuse of the client_1...\n");
+        printf("\nTODO!\n");
 
         /* inchidem conexiunea, am terminat */
         //-----------------------------------------------------------------------------------------------------------------------------------------
@@ -137,19 +157,23 @@ int main(int argc, char *argv[])
         printf("[client_1]Hello! You have successfully logged in!\n\n");
         /* citirea mesajului */
 
+        pthread_mutex_lock(&mutex);
         nr = 1;
         if (write(sd, &nr, sizeof(int)) <= 0)
         {
             perror("[client_1]Error at the write() function!\n\n");
             return errno;
         }
+        pthread_mutex_unlock(&mutex);
 
+        pthread_mutex_lock(&mutex);
         char fd_context[2048];
         if (read(sd, &fd_context, sizeof(fd_context)) < 0)
         {
             perror("[client_1]Error at the read() function!\n\n");
             return errno;
         }
+        pthread_mutex_unlock(&mutex);
 
         printf("[client_1]You have the request to offer the donation:\n");
         printf("%s\n", fd_context);
