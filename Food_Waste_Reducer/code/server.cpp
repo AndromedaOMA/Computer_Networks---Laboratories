@@ -114,13 +114,13 @@ auto exec_Parametrized_SQL_Query(MYSQL *connection, const std::string &query, co
     // Execute the SQL statement
     if (mysql_stmt_execute(stmt))
     {
-        //---------test---------
-        // printf("\nExecuting query: %s\n", query.c_str());
-        //----------------------
         mysql_stmt_close(stmt);
         printf("Statement execution failed: %s\n", mysql_stmt_error(stmt));
         exit(1);
     }
+    //---------test---------
+    // printf("\nExecuting query: %s\n", query.c_str());
+    //----------------------
 
     // Retrieve the result set
     MYSQL_RES *result = mysql_store_result(connection);
@@ -130,6 +130,14 @@ auto exec_Parametrized_SQL_Query(MYSQL *connection, const std::string &query, co
         printf("Query result failed: %s\n", mysql_error(connection));
         exit(1);
     }
+    //------------test----------
+    pthread_mutex_lock(&mutex);
+    printf("\n TEST from exec_Parametrized_SQL_Query func!\n");
+    printf("\n %lld\n", mysql_num_rows(result));
+    printf("\n %d\n", mysql_num_fields(result));
+    //TODO: determine the mysql_num_rows and mysql_num_fields
+    pthread_mutex_unlock(&mutex);
+    //--------------------------
 
     // Return a tuple containing the result set, number of rows, and number of fields
     return std::make_tuple(result, mysql_num_rows(result), mysql_num_fields(result));
@@ -163,11 +171,11 @@ typedef struct thData
 } thData;
 
 static void *treat_client_0(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii client_0*/
-void response_client_0(void *);
+void donation_list_viewer(void *);
 void request_sent(void *);
 
 static void *treat_client_1(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii client_1*/
-void response_client_1(void *);
+void request_list_viewer(void *);
 
 //========================================================================================================================================= main code
 
@@ -261,7 +269,7 @@ static void *treat_client_0(void *arg)
     struct thData *tdL = (struct thData *)arg;
     fflush(stdout);
     pthread_detach(pthread_self());
-    response_client_0((struct thData *)arg);
+    donation_list_viewer((struct thData *)arg);
     //------------------------------------------
     if (OK)
         request_sent((struct thData *)arg);
@@ -272,7 +280,7 @@ static void *treat_client_0(void *arg)
     return (NULL);
 };
 
-void response_client_0(void *arg)
+void donation_list_viewer(void *arg)
 {
     // pthread_mutex_lock(&mutex);
 
@@ -373,7 +381,7 @@ void request_sent(void *arg)
     std::tie(resultSet_2, numRows_2, numFields_2) = result_2;
 
     //----------test------------
-    printf("\n\n numRows-TEST: %ld\n\n", numRows_2);
+    // printf("\n\n numRows-TEST: %ld\n\n", numRows_2);
     //---------------------------
 
     // Print the result
@@ -417,7 +425,7 @@ void request_sent(void *arg)
             pthread_mutex_unlock(&mutex);
         }
 
-        sleep(1);//HEAVEN
+        sleep(1); // HEAVEN
 
         pthread_mutex_lock(&mutex);
         std::string end_msg = "end";
@@ -438,44 +446,45 @@ void request_sent(void *arg)
     std::vector<std::string> parameters = {std::to_string(id_value), std::to_string(donation_value)};
 
     //-------test----------
-    pthread_mutex_lock(&mutex);
-    printf("\n TEST\n");
-    printf("idThread: %d\n", id_value);
-    printf("donation_value: %d\n", donation_value);
-    pthread_mutex_unlock(&mutex);
+    // pthread_mutex_lock(&mutex);
+    // printf("\n TEST\n");
+    // printf("idThread: %d\n", id_value);
+    // printf("donation_value: %d\n", donation_value);
+    // pthread_mutex_unlock(&mutex);
     //---------------------
 
     try
     {
-
-        //------------test----------
-        pthread_mutex_lock(&mutex);
-        printf("\n urgent-TEST\n");
-        pthread_mutex_unlock(&mutex);
-        //--------------------------
-
         auto result_3 = exec_Parametrized_SQL_Query(SQLDetails.getConnection(), queryStream_3, parameters);
 
         // Extract information from the result tuple
-        MYSQL_RES *result = std::get<0>(result_3);
-        int numRows = std::get<1>(result_3);
-        int numFields = std::get<2>(result_3);
+        // MYSQL_RES *result = std::get<0>(result_3);
+        // int numRows = std::get<1>(result_3);
+        // int numFields = std::get<2>(result_3);
 
         // auto result_3 = exec_SQL_Query(SQLDetails.getConnection(), queryStream_3.str());
 
-        // // Unpack the tuple
-        // MYSQL_RES *resultSet;
-        // unsigned long numRows, numFields;
-        // std::tie(resultSet, numRows, numFields) = result_3;
+        // Unpack the tuple
+        MYSQL_RES *resultSet;
+        unsigned long numRows, numFields;
+        std::tie(resultSet, numRows, numFields) = result_3;
+
+        //------------test----------
+        pthread_mutex_lock(&mutex);
+        printf("\n TEST\n");
+        printf("\n %ld\n", numRows);
+        printf("\n %ld\n", numFields);
+        pthread_mutex_unlock(&mutex);
+        //--------------------------
 
         pthread_mutex_lock(&mutex);
         printf("UPDATE: alocate the donation to the client_0\n");
-        printf("Query executed successfully. Rows affected: %d\n", numRows);
-        printf("Query executed successfully. Fields affected: %d\n", numFields);
+        printf("Query executed successfully. Rows affected: %ld\n", numRows);
+        printf("Query executed successfully. Fields affected: %ld\n", numFields);
         pthread_mutex_unlock(&mutex);
 
         // Clean up resources
-        mysql_free_result(result);
+        // mysql_free_result(resultSet);
     }
     catch (const std::exception &e)
     {
@@ -492,14 +501,14 @@ static void *treat_client_1(void *arg)
     tdL = *((struct thData *)arg);
     fflush(stdout);
     pthread_detach(pthread_self());
-    response_client_1((struct thData *)arg);
+    request_list_viewer((struct thData *)arg);
     //------------------------------------------
     /* am terminat cu acest client, inchidem conexiunea */
     close((intptr_t)arg);
     return (NULL);
 };
 
-void response_client_1(void *arg)
+void request_list_viewer(void *arg)
 {
     // pthread_mutex_lock(&mutex);
 
@@ -526,13 +535,13 @@ void response_client_1(void *arg)
         char buffer[1024];
         strcpy(buffer, msg.c_str());
 
-        // pthread_mutex_lock(&mutex);
+        pthread_mutex_lock(&mutex);
         if (write(tdL.cl, msg.c_str(), msg.length()) <= 0)
         {
             perror("[Thread]Error at the write() function!\n\n");
             return;
         }
-        // pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&mutex);
     }
     else
     {
@@ -546,14 +555,12 @@ void response_client_1(void *arg)
             buffer << "ID_Product: " << row[0] << " | ID_Donation: " << row[1] << " | Type: " << row[2] << " | Amount: " << row[3] << "\n";
             std::string result = buffer.str();
 
-            // pthread_mutex_lock(&mutex);
+            pthread_mutex_lock(&mutex);
             write(tdL.cl, result.c_str(), result.size());
-            // pthread_mutex_unlock(&mutex);
+            pthread_mutex_unlock(&mutex);
         }
     }
     mysql_free_result(resultSet);
-
-    // pthread_mutex_unlock(&mutex);
 }
 //=========================================MariaDB=======================================================================================
 
