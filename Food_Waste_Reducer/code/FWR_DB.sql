@@ -67,7 +67,7 @@ SELECT * FROM FWR_DB.Products;
 SELECT * FROM FWR_DB.Products WHERE ID_Donation = 1;
 UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = 1 WHERE FWR_DB.Donations.ID_Donation = 5;
 
-UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = NULL WHERE FWR_DB.Donations.ID_Donation = 8;
+UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = NULL WHERE FWR_DB.Donations.ID_Donation = 4;
 
 SELECT * FROM FWR_DB.Products JOIN FWR_DB.Donations ON FWR_DB.Products.ID_Donation = FWR_DB.Donations.ID_Donation WHERE FWR_DB.Donations.ID0 IS NULL
 SELECT * FROM FWR_DB.Products p JOIN FWR_DB.Donations d ON p.ID_Donation = d.ID_Donation WHERE d.ID_Donation = 8 AND d.ID0 IS NULL

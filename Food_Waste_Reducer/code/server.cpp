@@ -71,7 +71,7 @@ public:
     }
 };
 
-auto exec_Parametrized_SQL_Query(MYSQL *connection, const std::string &query, const std::vector<std::string> &parameters)
+void exec_non_SELECT_Parametrized_Query(MYSQL *connection, const std::string &query, const std::vector<std::string> &parameters)
 { // Source: https://dev.mysql.com/doc/c-api/5.7/en/mysql-stmt-bind-param.html
 
     // Initialize a MySQL statement
@@ -118,29 +118,24 @@ auto exec_Parametrized_SQL_Query(MYSQL *connection, const std::string &query, co
         printf("Statement execution failed: %s\n", mysql_stmt_error(stmt));
         exit(1);
     }
+    
     //---------test---------
     // printf("\nExecuting query: %s\n", query.c_str());
     //----------------------
+    
+    printf("\n TEST from exec_non_SELECT_Parametrized_Query func!\n");
 
-    // Retrieve the result set
-    MYSQL_RES *result = mysql_store_result(connection);
-    if (!result && mysql_errno(connection))
-    {
-        mysql_stmt_close(stmt);
-        printf("Query result failed: %s\n", mysql_error(connection));
-        exit(1);
-    }
     //------------test----------
     pthread_mutex_lock(&mutex);
-    printf("\n TEST from exec_Parametrized_SQL_Query func!\n");
-    printf("\n %lld\n", mysql_num_rows(result));
-    printf("\n %d\n", mysql_num_fields(result));
-    //TODO: determine the mysql_num_rows and mysql_num_fields
+    printf("\nexec_non_SELECT_Parametrized_Query func! -> db succesfully modified\n");
+    // my_ulonglong affectedRows = mysql_stmt_affected_rows(stmt);
+    // printf("Number of affected rows: %llu\n", affectedRows);
     pthread_mutex_unlock(&mutex);
     //--------------------------
 
+
     // Return a tuple containing the result set, number of rows, and number of fields
-    return std::make_tuple(result, mysql_num_rows(result), mysql_num_fields(result));
+    // return std::make_tuple(result, mysql_num_rows(result), mysql_num_fields(result));
 }
 //=================----------------------------======================
 auto exec_SQL_Query(MYSQL *connection, std::string query)
@@ -373,7 +368,7 @@ void request_sent(void *arg)
     std::ostringstream queryStream_2; // Create a parameterized query
     queryStream_2 << "SELECT * FROM FWR_DB.Products p JOIN FWR_DB.Donations d ON p.ID_Donation = d.ID_Donation WHERE d.ID_Donation = " << donation_value << " AND d.ID0 IS NULL";
     // std::vector<std::string> parameters_2 = {std::to_string(donation_value)};
-    // auto result_2 = exec_Parametrized_SQL_Query(SQLDetails.getConnection(), queryStream_2.str(), parameters_2);
+    // auto result_2 = exec_non_SELECT_Parametrized_Query(SQLDetails.getConnection(), queryStream_2.str(), parameters_2);
     auto result_2 = exec_SQL_Query(SQLDetails.getConnection(), queryStream_2.str());
     // Unpack the tuple
     MYSQL_RES *resultSet_2;
@@ -455,7 +450,7 @@ void request_sent(void *arg)
 
     try
     {
-        auto result_3 = exec_Parametrized_SQL_Query(SQLDetails.getConnection(), queryStream_3, parameters);
+        // auto result_3 = exec_non_SELECT_Parametrized_Query(SQLDetails.getConnection(), queryStream_3, parameters);
 
         // Extract information from the result tuple
         // MYSQL_RES *result = std::get<0>(result_3);
@@ -465,23 +460,27 @@ void request_sent(void *arg)
         // auto result_3 = exec_SQL_Query(SQLDetails.getConnection(), queryStream_3.str());
 
         // Unpack the tuple
-        MYSQL_RES *resultSet;
-        unsigned long numRows, numFields;
-        std::tie(resultSet, numRows, numFields) = result_3;
+        // MYSQL_RES *resultSet;
+        // unsigned long numRows, numFields;
+        // std::tie(resultSet, numRows, numFields) = result_3;
 
         //------------test----------
-        pthread_mutex_lock(&mutex);
-        printf("\n TEST\n");
-        printf("\n %ld\n", numRows);
-        printf("\n %ld\n", numFields);
-        pthread_mutex_unlock(&mutex);
+        // pthread_mutex_lock(&mutex);
+        // printf("\n TEST\n");
+        // printf("\n %ld\n", numRows);
+        // printf("\n %ld\n", numFields);
+        // pthread_mutex_unlock(&mutex);
         //--------------------------
 
         pthread_mutex_lock(&mutex);
-        printf("UPDATE: alocate the donation to the client_0\n");
-        printf("Query executed successfully. Rows affected: %ld\n", numRows);
-        printf("Query executed successfully. Fields affected: %ld\n", numFields);
+        printf("\nUPDATE command will alocate the donation to the client_0\n");
+        printf("Before calling exec_non_SELECT_Parametrized_Query\n");
+        exec_non_SELECT_Parametrized_Query(SQLDetails.getConnection(), queryStream_3, parameters);
+        printf("After calling exec_non_SELECT_Parametrized_Query\n");
         pthread_mutex_unlock(&mutex);
+
+        // printf("Query executed successfully. Rows affected: %ld\n", numRows);
+        // printf("Query executed successfully. Fields affected: %ld\n", numFields);
 
         // Clean up resources
         // mysql_free_result(resultSet);
