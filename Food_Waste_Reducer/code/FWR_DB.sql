@@ -65,7 +65,8 @@ SELECT * FROM FWR_DB.Donations;
 SELECT * FROM FWR_DB.Products;
 
 SELECT * FROM FWR_DB.Products WHERE ID_Donation = 1;
-UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = 1 WHERE FWR_DB.Donations.ID_Donation = 5;
+
+UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = 1 WHERE FWR_DB.Donations.ID_Donation IN (1,3,4,6,8);
 
 UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = NULL WHERE FWR_DB.Donations.ID_Donation = 4;
 

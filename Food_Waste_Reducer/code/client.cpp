@@ -79,12 +79,19 @@ int main(int argc, char *argv[])
         while ((bytesRead = read(sd, buffer, sizeof(buffer) - 1)) > 0) // read_1.1 / read_1.2 - list_of_donations
         {
             buffer[bytesRead] = '\0';
-            if(strstr(buffer, "end") != NULL)
+            if (strstr(buffer, "end") != NULL)
                 break;
             printf("%s", buffer);
         }
+
+        if (strstr(buffer, "Unfortunately") != NULL)
+        {
+            close(sd);
+            return 0;
+        }
+
         //---------test----
-        // printf("\n TEST:\n%s\n", buffer);
+        // printf("\n -----TEST: %s\n", buffer);
         //-----------------
         if (bytesRead < 0)
         {
@@ -95,18 +102,18 @@ int main(int argc, char *argv[])
 
         //----------------------------------------------------------------------------------------------------------------------------------------- Donation selection
 
-        printf("\n[client_0]Choose a number corresponding to the desired donation (ID_Donation):\n");
+        printf("\n[client_0]Choose a number corresponding to the desired donation (ID_Donation): ");
         int value;
 
         if (scanf("%d", &value) != 1)
         {
-            perror("\n[client_0]Error at the scanf() function (reading from terminal)!\n\n");
+            perror("\n\n[client_0]Error at the scanf() function (reading from terminal)!\n\n");
             return errno;
         }
 
         //----test-----------
         // printf("\n TEST\n");
-        printf("\n[client_0]You have selected the donation with the number: %d\n", value);
+        printf("\n\n[client_0]You have selected the donation with the number: %d\n", value);
         //--------------------
 
         pthread_mutex_lock(&mutex);
@@ -124,7 +131,7 @@ int main(int argc, char *argv[])
         while ((bytesRead_2 = read(sd, buffer_2, sizeof(buffer_2) - 1)) > 0) // read_1.1 / read_1.2 - list_of_donations
         {
             buffer_2[bytesRead_2] = '\0';
-            if(strstr(buffer_2, "end") != NULL)
+            if (strstr(buffer_2, "end") != NULL)
                 break;
             printf("%s", buffer_2);
         }
@@ -143,6 +150,8 @@ int main(int argc, char *argv[])
         printf("\nTODO!\n");
 
         /* inchidem conexiunea, am terminat */
+        close(sd);
+        return 0;
         //-----------------------------------------------------------------------------------------------------------------------------------------
     }
     else if (atoi(argv[3]) == 1)
@@ -159,7 +168,7 @@ int main(int argc, char *argv[])
 
         pthread_mutex_lock(&mutex);
         nr = 1;
-        if (write(sd, &nr, sizeof(int)) <= 0)
+        if (write(sd, &nr, sizeof(int)) <= 0) // write_1 - role selected
         {
             perror("[client_1]Error at the write() function!\n\n");
             return errno;
@@ -167,23 +176,34 @@ int main(int argc, char *argv[])
         pthread_mutex_unlock(&mutex);
 
         pthread_mutex_lock(&mutex);
-        char fd_context[2048];
-        if (read(sd, &fd_context, sizeof(fd_context)) < 0)
+        printf("\n[client_1]Today we have the following list of requested donations:\n");
+        char buffer[10000];
+        int bytesRead;
+        while ((bytesRead = read(sd, buffer, sizeof(buffer) - 1)) > 0) // read_1.1 / read_1.2 - list_of_requests
         {
-            perror("[client_1]Error at the read() function!\n\n");
+            buffer[bytesRead] = '\0';
+            if (strstr(buffer, "end") != NULL)
+                break;
+            printf("%s", buffer);
+        }
+        //---------test----
+        // printf("\n TEST:\n%s\n", buffer);
+        //-----------------
+        if (bytesRead < 0)
+        {
+            perror("\n[client_0]Error at the read() function!\n\n");
             return errno;
         }
         pthread_mutex_unlock(&mutex);
-
-        printf("[client_1]You have the request to offer the donation:\n");
-        printf("%s\n", fd_context);
-
         printf("\n");
 
         /* inchidem conexiunea, am terminat */
+        // TODO: INCHIDEM CONNEXIUNEA
+        close(sd); //?
     }
     else
         printf("<role> = 0 if you are a charity or a person in need / 1 if you are a restaurant or shop!\n\n");
 
     close(sd);
+    return 0;
 }
