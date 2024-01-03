@@ -15,6 +15,8 @@ Convention:
 #include <string.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <iostream>
+#include <string>
 
 // Declare mutex globally
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -28,7 +30,6 @@ int main(int argc, char *argv[])
     struct sockaddr_in server; // structura folosita pentru conectare
                                // mesajul trimis
     int nr = 0;
-    char buf[10];
 
     /* exista toate argumentele in linia de comanda? */
     if (argc != 4)
@@ -41,7 +42,7 @@ int main(int argc, char *argv[])
     /* cream socketul */
     if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
-        perror("Error at the socket() function!\n");
+        perror("\nError at the socket() function!\n");
         return errno;
     }
 
@@ -57,32 +58,64 @@ int main(int argc, char *argv[])
         /* ne conectam la server */
         if (connect(sd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1)
         {
-            perror("\n[client_0]Error at the connect() function!\n\n");
+            perror("\n[client_0]Error at the connect() function!\n");
             return errno;
         }
 
-        printf("\n[client_0]Hello! You have successfully logged in!\n\n");
+        printf("\n[client_0]Hello! You have successfully logged in!\n");
 
         pthread_mutex_lock(&mutex);
         nr = 0;
-        if (write(sd, &nr, sizeof(int)) <= 0) // write_1 - role selected
+        if (write(sd, &nr, sizeof(int)) <= 0) // 0.write_1 - role selected
         {
             perror("\n[client_0]Error at the write() function!\n\n");
             return errno;
         }
         pthread_mutex_unlock(&mutex);
 
+        //----------------------------------------------------------------------------------------------------------------------------------------- Donation selection
+        pthread_mutex_lock(&mutex);
+        printf("\n[client_0]Here is the list of usernames that are already registered to us:\n");
+        char names_buffer[10000];
+        int names_bytesRead;
+        while ((names_bytesRead = read(sd, names_buffer, sizeof(names_buffer) - 1)) > 0) // 0.read_inserted_1 - list_of_usernames
+            if (strstr(names_buffer, "end") != NULL)
+                break;
+        names_buffer[names_bytesRead - 3] = '\0';
+        printf("%s", names_buffer);
+
+        //======TEST=======                         TODO: ???
+        printf("\n TEST---: %s\n", names_buffer);
+        //===============
+
+        pthread_mutex_unlock(&mutex);
+        //--------------------
+        pthread_mutex_lock(&mutex);
+        printf("\n[client_0]Please choose your valid username from the above given list!\n");
+        char current_name[20];
+        if (scanf("%s", current_name) != 1)
+        {
+            perror("\n\n[client_0]Error at the scanf() function (reading from terminal)!\n\n");
+            return errno;
+        }
+        write(sd, current_name, sizeof(current_name)); // 0.write_inserted_1 - username
+        pthread_mutex_unlock(&mutex);
+        //----------------------------------------------------------------------------------------------------------------------------------------- Donation selection
+
         pthread_mutex_lock(&mutex);
         printf("\n[client_0]Today we have the following list of available donations:\n");
         char buffer[10000];
         int bytesRead;
-        while ((bytesRead = read(sd, buffer, sizeof(buffer) - 1)) > 0) // read_1.1 / read_1.2 - list_of_donations
-        {
-            buffer[bytesRead] = '\0';
+        while ((bytesRead = read(sd, buffer, sizeof(buffer) - 1)) > 0) // 0.read_1.1 / read_1.2 - list_of_donations
             if (strstr(buffer, "end") != NULL)
                 break;
-            printf("%s", buffer);
-        }
+
+        buffer[bytesRead - 3] = '\0';
+        printf("%s", buffer);
+
+        //---------test----
+        // printf("\n -----TEST: %s\n", buffer);
+        //-----------------
 
         if (strstr(buffer, "Unfortunately") != NULL)
         {
@@ -90,9 +123,6 @@ int main(int argc, char *argv[])
             return 0;
         }
 
-        //---------test----
-        // printf("\n -----TEST: %s\n", buffer);
-        //-----------------
         if (bytesRead < 0)
         {
             perror("\n[client_0]Error at the read() function!\n\n");
@@ -117,7 +147,7 @@ int main(int argc, char *argv[])
         //--------------------
 
         pthread_mutex_lock(&mutex);
-        if (write(sd, &value, sizeof(int)) <= 0) // write_2 - donation_value selected
+        if (write(sd, &value, sizeof(int)) <= 0) // 0.write_2 - donation_value selected
         {
             perror("\n[client_0]Error at the write() function!\n\n");
             return errno;
@@ -128,7 +158,7 @@ int main(int argc, char *argv[])
         printf("\n[client_0]Below you will see the selected donation:\n");
         char buffer_2[10000];
         int bytesRead_2;
-        while ((bytesRead_2 = read(sd, buffer_2, sizeof(buffer_2) - 1)) > 0) // read_1.1 / read_1.2 - list_of_donations
+        while ((bytesRead_2 = read(sd, buffer_2, sizeof(buffer_2) - 1)) > 0) // 0.read_1.1 / read_1.2 - list_of_donations
         {
             buffer_2[bytesRead_2] = '\0';
             if (strstr(buffer_2, "end") != NULL)
@@ -148,6 +178,7 @@ int main(int argc, char *argv[])
         //......
         printf("\n[client_0]Waiting for the server response and for the accept/refuse of the client_1...\n");
         printf("\nTODO!\n");
+        sleep(2);
 
         /* inchidem conexiunea, am terminat */
         close(sd);
@@ -159,18 +190,18 @@ int main(int argc, char *argv[])
         /* ne conectam la server */
         if (connect(sd, (struct sockaddr *)&server, sizeof(struct sockaddr)) == -1)
         {
-            perror("[client]Error at the connect() function!\n\n");
+            perror("\n[client]Error at the connect() function!\n\n");
             return errno;
         }
 
-        printf("[client_1]Hello! You have successfully logged in!\n\n");
-        /* citirea mesajului */
+        printf("\n[client_1]Hello! You have successfully logged in!\n");
 
+        /* citirea mesajului */
         pthread_mutex_lock(&mutex);
         nr = 1;
-        if (write(sd, &nr, sizeof(int)) <= 0) // write_1 - role selected
+        if (write(sd, &nr, sizeof(int)) <= 0) // 1.write_1 - role selected
         {
-            perror("[client_1]Error at the write() function!\n\n");
+            perror("\n[client_1]Error at the write() function!\n\n");
             return errno;
         }
         pthread_mutex_unlock(&mutex);
@@ -179,13 +210,11 @@ int main(int argc, char *argv[])
         printf("\n[client_1]Today we have the following list of requested donations:\n");
         char buffer[10000];
         int bytesRead;
-        while ((bytesRead = read(sd, buffer, sizeof(buffer) - 1)) > 0) // read_1.1 / read_1.2 - list_of_requests
-        {
-            buffer[bytesRead] = '\0';
+        while ((bytesRead = read(sd, buffer, sizeof(buffer) - 1)) > 0) // 1.read_1.1 / read_1.2 - list_of_requests
             if (strstr(buffer, "end") != NULL)
                 break;
-            printf("%s", buffer);
-        }
+        buffer[bytesRead - 3] = '\0';
+        printf("%s", buffer);
         //---------test----
         // printf("\n TEST:\n%s\n", buffer);
         //-----------------
@@ -195,14 +224,12 @@ int main(int argc, char *argv[])
             return errno;
         }
         pthread_mutex_unlock(&mutex);
-        printf("\n");
 
         /* inchidem conexiunea, am terminat */
-        // TODO: INCHIDEM CONNEXIUNEA
-        close(sd); //?
+        close(sd);
     }
     else
-        printf("<role> = 0 if you are a charity or a person in need / 1 if you are a restaurant or shop!\n\n");
+        printf("\nThere is a problem in your ./client call!\n<role> = 0 if you are a charity or a person in need / 1 if you are a restaurant or shop!\n\n");
 
     close(sd);
     return 0;

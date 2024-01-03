@@ -23,8 +23,25 @@ Convention:
 #include <mariadb/mysql.h>
 
 /* portul folosit */
-#define PORT 3335
+#define PORT 3336
 int OK;
+
+/* codul de eroare returnat de anumite apeluri */
+// extern int errno;
+
+typedef struct thData
+{
+    int idThread; // id-ul thread-ului tinut in evidenta de acest program
+    int cl;       // descriptorul intors de accept
+} thData;
+
+static void *treat_client_0(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii client_0*/
+void request_sent(void *);
+
+static void *treat_client_1(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii client_1*/
+void request_list_viewer(void *);
+
+void final_message(void *);
 
 // Declare mutex globally
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -70,6 +87,8 @@ public:
         return connection;
     }
 };
+
+//=========================================================================================================================================
 
 void exec_non_SELECT_Parametrized_Query(MYSQL *connection, const std::string &query, const std::vector<std::string> &parameters)
 { // Source: https://dev.mysql.com/doc/c-api/5.7/en/mysql-stmt-bind-param.html
@@ -146,29 +165,243 @@ auto exec_SQL_Query(MYSQL *connection, std::string query)
         exit(1);
     }
 
+    // mysql_free_result(result);
+
     return std::make_tuple(result, mysql_num_rows(result), mysql_num_fields(result));
 }
 
-/* codul de eroare returnat de anumite apeluri */
-// extern int errno;
+//=========================================================================================================================================
 
-typedef struct thData
+// class client_1_DB_History
+// {
+// public:
+//     int idDonation[100];
+//     // int idClient_0;
+//     // int idClient_1;
+//     // int idProduct;
+//     // std::string type;
+//     // int amount;
+// private:
+//     void mysql_store_result(void *arg)
+//     {
+//         struct thData tdL;
+//         tdL = *((struct thData *)arg);
+
+//         pthread_mutex_lock(&mutex);
+//         printf("[Thread %d]The request connection from [client_1] has been received...\n\n", tdL.idThread);
+//         pthread_mutex_unlock(&mutex);
+
+//         SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
+//         auto result = exec_SQL_Query(SQLDetails.getConnection(), "SELECT * FROM FWR_DB.Donations WHERE ID0 IS NULL");
+
+//         // Unpack the tupleD
+//         MYSQL_RES *resultSet;
+//         unsigned long numRows, numFields;
+//         std::tie(resultSet, numRows, numFields) = result;
+
+//         // Print the result
+//         if (numRows == 0)
+//         {
+//             pthread_mutex_lock(&mutex);
+//             std::string msg = "========> Unfortunately, the list of requests is empty...\n========> Please try again later!\n";
+//             if (write(tdL.cl, msg.c_str(), msg.length()) <= 0) // 1.write_1.1
+//             {
+//                 perror("\n[Thread]Error at the write() function!\n");
+//                 return;
+//             }
+//             pthread_mutex_unlock(&mutex);
+//         }
+//         else
+//         {
+//             printf("Number of Rows: %lu\n", numRows);
+//             printf("Number of Fields: %lu\n", numFields);
+
+//             MYSQL_ROW row;
+//             while (row = mysql_fetch_row(resultSet))
+//             {
+//                 std::stringstream buffer;
+//                 buffer << "ID_Donation: " << row[0] << " | ID1: " << row[2] << "\n";
+//                 std::string result = buffer.str();
+
+//                 pthread_mutex_lock(&mutex);
+//                 write(tdL.cl, result.c_str(), result.size());
+//                 pthread_mutex_unlock(&mutex);
+//             }
+//         }
+
+//         pthread_mutex_lock(&mutex);
+//         std::string end_msg = "end";
+//         write(tdL.cl, end_msg.c_str(), end_msg.size()); // 1.write_end
+//         pthread_mutex_unlock(&mutex);
+
+//         mysql_free_result(resultSet);
+//     }
+// };
+
+class user_data
 {
-    int idThread; // id-ul thread-ului tinut in evidenta de acest program
-    int cl;       // descriptorul intors de accept
-} thData;
+private:
+    std::string username;
 
-static void *treat_client_0(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii client_0*/
-void donation_list_viewer(void *);
-void request_sent(void *);
+public:
+    void username_list_viewer(void *arg)
+    {
+        struct thData tdL;
+        tdL = *((struct thData *)arg);
 
-static void *treat_client_1(void *); /* functia executata de fiecare thread ce realizeaza comunicarea cu clientii client_1*/
-void request_list_viewer(void *);
+        pthread_mutex_lock(&mutex);
+        printf("\n[Thread %d]The request to display the list of usernames from [client_0] has been received...\n", tdL.idThread);
+        pthread_mutex_unlock(&mutex);
+
+        SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
+        auto result = exec_SQL_Query(SQLDetails.getConnection(), "SELECT * FROM FWR_DB.client0");
+
+        // Unpack the tuple
+        MYSQL_RES *resultSet;
+        unsigned long numRows, numFields;
+        std::tie(resultSet, numRows, numFields) = result;
+
+        // Print the result
+        if (numRows == 0)
+        {
+            pthread_mutex_lock(&mutex);
+            std::string msg = "========> Unfortunately, the list of usernames is empty...\n========> Please try again later!\n";
+            if (write(tdL.cl, msg.c_str(), msg.length()) <= 0) // 1.write_1.1
+            {
+                perror("\n[Thread]Error at the write() function!\n");
+                return;
+            }
+            pthread_mutex_unlock(&mutex);
+        }
+        else
+        {
+            printf("\nHere we have the avalable usernames data:\n");
+            printf("Number of Rows: %lu\n", numRows);
+            printf("Number of Fields: %lu\n", numFields);
+
+            MYSQL_ROW row;
+            while (row = mysql_fetch_row(resultSet))
+            {
+                std::stringstream buffer;
+                buffer << "ID0: " << row[0] << " | Username: " << row[1] << "\n";
+                std::string result = buffer.str();
+
+                //======TEST=====
+                // pthread_mutex_lock(&mutex);
+                // printf("\n TEST---: %s\n", buffer.str().c_str());
+                // pthread_mutex_unlock(&mutex);
+                //===============
+
+                pthread_mutex_lock(&mutex);
+                write(tdL.cl, result.c_str(), result.size());
+                pthread_mutex_unlock(&mutex);
+            }
+        }
+
+        pthread_mutex_lock(&mutex);
+        std::string end_msg = "end";
+        write(tdL.cl, end_msg.c_str(), end_msg.size()); // 1.write_end
+        pthread_mutex_unlock(&mutex);
+
+        mysql_free_result(resultSet);
+    }
+
+    void donation_list_viewer(void *arg)
+    {
+        // pthread_mutex_lock(&mutex);
+
+        struct thData tdL;
+        tdL = *((struct thData *)arg);
+
+        pthread_mutex_lock(&mutex);
+        printf("\n[Thread %d]The request to display the list of donations from [client_0] has been received...\n\n", tdL.idThread);
+        pthread_mutex_unlock(&mutex);
+
+        SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
+        auto result = exec_SQL_Query(SQLDetails.getConnection(), "SELECT * FROM FWR_DB.Products JOIN FWR_DB.Donations ON FWR_DB.Products.ID_Donation = FWR_DB.Donations.ID_Donation WHERE FWR_DB.Donations.ID0 IS NULL");
+
+        // Unpack the tuple
+        MYSQL_RES *resultSet;
+        unsigned long numRows, numFields;
+        std::tie(resultSet, numRows, numFields) = result;
+
+        // Print the result
+        if (numRows == 0)
+        {
+            OK = 0;
+
+            pthread_mutex_lock(&mutex);
+            std::string msg = "========> Unfortunately, the list of donations is empty...\n========> Please try again later!\n";
+            if (write(tdL.cl, msg.c_str(), msg.length()) <= 0) // write_1.1
+            {
+                perror("\n[Thread]Error at the write() function!\n");
+                return;
+            }
+            pthread_mutex_unlock(&mutex);
+        }
+        else
+        {
+            OK = 1;
+
+            pthread_mutex_lock(&mutex);
+            printf("Here we have the avalable donations data:\n");
+            printf("Number of Rows: %lu\n", numRows);
+            printf("Number of Fields: %lu\n", numFields);
+            pthread_mutex_unlock(&mutex);
+
+            MYSQL_ROW row;
+            while (row = mysql_fetch_row(resultSet))
+            {
+                std::stringstream buffer;
+                buffer << "ID_Product: " << row[0] << " | ID_Donation: " << row[1] << " | Type: " << row[2] << " | Amount: " << row[3] << "\n";
+                std::string result = buffer.str();
+
+                pthread_mutex_lock(&mutex);
+                write(tdL.cl, result.c_str(), result.size()); // write_1.2
+                pthread_mutex_unlock(&mutex);
+            }
+        }
+
+        pthread_mutex_lock(&mutex);
+        std::string end_msg = "end";
+        write(tdL.cl, end_msg.c_str(), end_msg.size()); // write_1_end
+        pthread_mutex_unlock(&mutex);
+
+        mysql_free_result(resultSet);
+    }
+
+    void store_current_name(void *arg)
+    {
+        struct thData tdL;
+        tdL = *((struct thData *)arg);
+        int test = 0;
+
+        pthread_mutex_lock(&mutex);
+        printf("\n[Thread %d]The request to store the current username selected from [client_0] has been received...\n\n", tdL.idThread);
+        pthread_mutex_unlock(&mutex);
+
+        read(tdL.cl, &this->username, sizeof(this->username)); // read_1.3 - username
+
+        pthread_mutex_lock(&mutex);
+        printf("Here we have the current username stored: %s\n", username.c_str());
+        pthread_mutex_unlock(&mutex);
+
+        //======TEST=====
+        pthread_mutex_lock(&mutex);
+        printf("\n TEST---: %s\n", username.c_str());
+        pthread_mutex_unlock(&mutex);
+        //===============
+
+        write(tdL.cl, &test, sizeof(int)); // write_1.3 - test
+    }
+};
 
 //========================================================================================================================================= main code
 
 int main()
 {
+    system("clear");
+
     struct sockaddr_in server; // structura folosita de server
     struct sockaddr_in from;
     int nr;            // mesajul primit de trimis la client
@@ -217,13 +450,15 @@ int main()
         thData *td; // parametru functia executata de thread
         unsigned int length = sizeof(from);
 
-        printf("[server]I'm waiting at the port %d...\n\n", PORT);
+        printf("\n-----------------------------------------\n");
+
+        printf("\n[server]I'm waiting at the port %d...\n", PORT);
         fflush(stdout);
 
         /* acceptam un client (stare blocanta pina la realizarea conexiunii) */
         if ((client = accept(sd, (struct sockaddr *)&from, &length)) < 0)
         {
-            perror("[server]Error at the accept() function!\n\n");
+            perror("\n[server]Error at the accept() function!\n");
             continue;
         }
 
@@ -238,8 +473,8 @@ int main()
         pthread_mutex_lock(&mutex);
         if (read(tdL.cl, &nr, sizeof(int)) <= 0) // read_1
         {
-            printf("[Thread %d]\n", tdL.idThread);
-            perror("Error at the read() function!\n\n");
+            printf("\n[Thread %d]\n", tdL.idThread);
+            perror("Error at the read() function!\n");
         }
         pthread_mutex_unlock(&mutex);
 
@@ -247,6 +482,8 @@ int main()
             pthread_create(&th[i], NULL, &treat_client_0, td);
         else
             pthread_create(&th[i], NULL, &treat_client_1, td);
+
+        // system("clear");
     }
 };
 
@@ -257,85 +494,23 @@ static void *treat_client_0(void *arg)
     struct thData *tdL = (struct thData *)arg;
     fflush(stdout);
     pthread_detach(pthread_self());
-    donation_list_viewer((struct thData *)arg);
+    user_data user;
+    user.username_list_viewer((struct thData *)arg);
+    //------------------------------------------
+    user.store_current_name((struct thData *)arg);
+    //------------------------------------------
+    user.donation_list_viewer((struct thData *)arg);
     //------------------------------------------
     if (OK)
         request_sent((struct thData *)arg);
     //------------------------------------------
+    final_message((struct thData *)arg);
 
     /* am terminat cu acest client, inchidem conexiunea */
     free(tdL);
     close((intptr_t)arg);
     return (NULL);
 };
-
-void donation_list_viewer(void *arg)
-{
-    // pthread_mutex_lock(&mutex);
-
-    struct thData tdL;
-    tdL = *((struct thData *)arg);
-
-    pthread_mutex_lock(&mutex);
-    printf("[Thread %d]The request connection from [client_0] has been received...\n\n", tdL.idThread);
-    pthread_mutex_unlock(&mutex);
-
-    SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
-    auto result = exec_SQL_Query(SQLDetails.getConnection(), "SELECT * FROM FWR_DB.Products JOIN FWR_DB.Donations ON FWR_DB.Products.ID_Donation = FWR_DB.Donations.ID_Donation WHERE FWR_DB.Donations.ID0 IS NULL");
-
-    // Unpack the tuple
-    MYSQL_RES *resultSet;
-    unsigned long numRows, numFields;
-    std::tie(resultSet, numRows, numFields) = result;
-
-    // Print the result
-    if (numRows == 0)
-    {
-        OK = 0;
-
-        pthread_mutex_lock(&mutex);
-        std::string msg = "Unfortunately, the list of donations is empty...\nPlease try again later!";
-        if (write(tdL.cl, msg.c_str(), msg.length()) <= 0) // write_1.1
-        {
-            perror("[Thread]Error at the write() function!\n\n");
-            return;
-        }
-        pthread_mutex_unlock(&mutex);
-
-        pthread_mutex_lock(&mutex);
-        std::string end_msg = "end";
-        write(tdL.cl, end_msg.c_str(), end_msg.size()); // write_1_end
-        pthread_mutex_unlock(&mutex);
-    }
-    else
-    {
-        OK = 1;
-
-        pthread_mutex_lock(&mutex);
-        printf("Here we have the avalable donations data:\n");
-        printf("Number of Rows: %lu\n", numRows);
-        printf("Number of Fields: %lu\n", numFields);
-        pthread_mutex_unlock(&mutex);
-
-        MYSQL_ROW row;
-        while (row = mysql_fetch_row(resultSet))
-        {
-            std::stringstream buffer;
-            buffer << "ID_Product: " << row[0] << " | ID_Donation: " << row[1] << " | Type: " << row[2] << " | Amount: " << row[3] << "\n";
-            std::string result = buffer.str();
-
-            pthread_mutex_lock(&mutex);
-            write(tdL.cl, result.c_str(), result.size()); // write_1.2
-            pthread_mutex_unlock(&mutex);
-        }
-
-        pthread_mutex_lock(&mutex);
-        std::string end_msg = "end";
-        write(tdL.cl, end_msg.c_str(), end_msg.size()); // write_1_end
-        pthread_mutex_unlock(&mutex);
-    }
-    mysql_free_result(resultSet);
-}
 
 void request_sent(void *arg)
 {
@@ -494,6 +669,7 @@ static void *treat_client_1(void *arg)
     pthread_detach(pthread_self());
     request_list_viewer((struct thData *)arg);
     //------------------------------------------
+    final_message((struct thData *)arg);
     /* am terminat cu acest client, inchidem conexiunea */
     close((intptr_t)arg);
     return (NULL);
@@ -519,21 +695,13 @@ void request_list_viewer(void *arg)
     // Print the result
     if (numRows == 0)
     {
-        std::string msg = "Unfortunately, there are no avalable requests...";
-        char buffer[1024];
-        strcpy(buffer, msg.c_str());
-
         pthread_mutex_lock(&mutex);
-        if (write(tdL.cl, msg.c_str(), msg.length()) <= 0)
+        std::string msg = "========> Unfortunately, the list of requests is empty...\n========> Please try again later!\n";
+        if (write(tdL.cl, msg.c_str(), msg.length()) <= 0) // 1.write_1.1
         {
-            perror("[Thread]Error at the write() function!\n\n");
+            perror("\n[Thread]Error at the write() function!\n");
             return;
         }
-        pthread_mutex_unlock(&mutex);
-
-        pthread_mutex_lock(&mutex);
-        std::string end_msg = "end";
-        write(tdL.cl, end_msg.c_str(), end_msg.size()); // write_1_end
         pthread_mutex_unlock(&mutex);
     }
     else
@@ -545,21 +713,35 @@ void request_list_viewer(void *arg)
         while (row = mysql_fetch_row(resultSet))
         {
             std::stringstream buffer;
-            buffer << "ID_Product: " << row[0] << " | ID_Donation: " << row[1] << " | Type: " << row[2] << " | Amount: " << row[3] << "\n";
+            buffer << "ID_Donation: " << row[0] << " | ID1: " << row[2] << "\n";
             std::string result = buffer.str();
 
             pthread_mutex_lock(&mutex);
             write(tdL.cl, result.c_str(), result.size());
             pthread_mutex_unlock(&mutex);
         }
-
-        pthread_mutex_lock(&mutex);
-        std::string end_msg = "end";
-        write(tdL.cl, end_msg.c_str(), end_msg.size()); // write_1_end
-        pthread_mutex_unlock(&mutex);
     }
+
+    pthread_mutex_lock(&mutex);
+    std::string end_msg = "end";
+    write(tdL.cl, end_msg.c_str(), end_msg.size()); // 1.write_end
+    pthread_mutex_unlock(&mutex);
+
     mysql_free_result(resultSet);
 }
+
+//--------------------------------------------------------------
+
+void final_message(void *arg)
+{
+    struct thData tdL;
+    tdL = *((struct thData *)arg);
+
+    pthread_mutex_lock(&mutex);
+    printf("\n[Thread %d]The current thread connection has been finished!\n\n", tdL.idThread);
+    pthread_mutex_unlock(&mutex);
+}
+
 //=========================================MariaDB=======================================================================================
 
 /* EXAMPLE OF QUERY
