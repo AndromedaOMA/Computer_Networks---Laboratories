@@ -172,7 +172,7 @@ private:
     char username[20];
 
 public:
-    //------------------------------------------ client_0
+    //------------------------------------------
     void username_list_viewer(void *arg)
     {
         struct thData tdL;
@@ -279,7 +279,7 @@ public:
 
         SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
         std::ostringstream queryStream; // Create a parameterized query
-        if(tdL.id_role == 0)
+        if (tdL.id_role == 0)
             queryStream << "SELECT * FROM FWR_DB.client0 WHERE FWR_DB.client0.Username = '" << username << "'";
         else
             queryStream << "SELECT * FROM FWR_DB.client1 WHERE FWR_DB.client1.Username = '" << username << "'";
@@ -312,6 +312,23 @@ public:
         }
     }
 
+    //------------------------------------------
+
+    void final_message(void *arg)
+    {
+        struct thData tdL;
+        tdL = *((struct thData *)arg);
+
+        pthread_mutex_lock(&mutex);
+        printf("\n[Thread %d]The current thread connection has been finished!\n\n", tdL.idThread);
+        pthread_mutex_unlock(&mutex);
+    }
+};
+
+class client_0 : public user_data
+{
+    public:
+    //------------------------------------------ client_0
     void donation_list_viewer(void *arg)
     {
         // pthread_mutex_lock(&mutex);
@@ -519,6 +536,11 @@ public:
             std::cerr << "Exception: " << e.what() << std::endl;
         }
     }
+};
+
+class client_1 : public user_data 
+{
+public:
     //------------------------------------------ client_1
     void request_list_viewer(void *arg)
     {
@@ -603,18 +625,6 @@ public:
             write(tdL.cl, "The requestes donation was not accepted... ", sizeof("The requestes donation was not accepted...")); // write_5.2
             pthread_mutex_unlock(&mutex);
         }
-    }
-
-    //------------------------------------------
-
-    void final_message(void *arg)
-    {
-        struct thData tdL;
-        tdL = *((struct thData *)arg);
-
-        pthread_mutex_lock(&mutex);
-        printf("\n[Thread %d]The current thread connection has been finished!\n\n", tdL.idThread);
-        pthread_mutex_unlock(&mutex);
     }
 };
 
@@ -723,20 +733,20 @@ static void *treat_client_0(void *arg)
     struct thData *tdL = (struct thData *)arg;
     fflush(stdout);
     pthread_detach(pthread_self());
-    user_data user0;
-    user0.username_list_viewer((struct thData *)arg);
+    client_0 user;
+    user.username_list_viewer((struct thData *)arg);
     //------------------------------------------
-    user0.store_current_name((struct thData *)arg);
+    user.store_current_name((struct thData *)arg);
     //------------------------------------------
     if (VALID_USERNAME)
     {
-        user0.donation_list_viewer((struct thData *)arg);
+        user.donation_list_viewer((struct thData *)arg);
         //------------------------------------------
         if (OK)
-            user0.request_sent((struct thData *)arg);
+            user.request_sent((struct thData *)arg);
     }
     //------------------------------------------
-    user0.final_message((struct thData *)arg);
+    user.final_message((struct thData *)arg);
 
     /* am terminat cu acest client, inchidem conexiunea */
     free(tdL);
@@ -753,19 +763,19 @@ static void *treat_client_1(void *arg)
     tdL = *((struct thData *)arg);
     fflush(stdout);
     pthread_detach(pthread_self());
-    user_data user1;
-    user1.username_list_viewer((struct thData *)arg);
+    client_1 user;
+    user.username_list_viewer((struct thData *)arg);
     //------------------------------------------
-    user1.store_current_name((struct thData *)arg);
+    user.store_current_name((struct thData *)arg);
     //------------------------------------------
     if (VALID_USERNAME)
     {
-        user1.request_list_viewer((struct thData *)arg);
+        user.request_list_viewer((struct thData *)arg);
         //------------------------------------------
-        user1.request_response((struct thData *)arg);
+        user.request_response((struct thData *)arg);
     }
     //------------------------------------------
-    user1.final_message((struct thData *)arg);
+    user.final_message((struct thData *)arg);
 
     /* am terminat cu acest client, inchidem conexiunea */
     close((intptr_t)arg);
