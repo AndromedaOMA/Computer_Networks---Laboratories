@@ -25,6 +25,7 @@ Convention:
 /* portul folosit */
 #define PORT 3336
 int VALID_USERNAME = 1;
+int ACCEPTED_REQUEST;
 int OK;
 
 /* codul de eroare returnat de anumite apeluri */
@@ -168,8 +169,10 @@ auto exec_SQL_Query(MYSQL *connection, std::string query)
 //=========================================================================================================================================
 class user_data
 {
-private:
+protected:
     char username[20];
+    int donation_value;
+    int current_ID;
 
 public:
     //------------------------------------------
@@ -252,7 +255,7 @@ public:
         mysql_free_result(resultSet);
     }
 
-    void store_current_name(void *arg)
+    void store_current_username_and_ID(void *arg)
     {
         struct thData tdL;
         tdL = *((struct thData *)arg);
@@ -268,7 +271,7 @@ public:
         read(tdL.cl, username, sizeof(username)); // read_2 - send_username
 
         pthread_mutex_lock(&mutex);
-        printf("Here we have the current username stored: %s\n", username);
+        printf("\nHere we have the current username stored: %s\n", username);
         pthread_mutex_unlock(&mutex);
 
         //======TEST=====
@@ -310,6 +313,10 @@ public:
             std::string result = buffer.str();
             write(tdL.cl, result.c_str(), result.size()); // write_2.2 - hello_msg
         }
+
+        //======= current_ID
+        // ....
+        //==================
     }
 
     //------------------------------------------
@@ -327,7 +334,7 @@ public:
 
 class client_0 : public user_data
 {
-    public:
+public:
     //------------------------------------------ client_0
     void donation_list_viewer(void *arg)
     {
@@ -397,7 +404,6 @@ class client_0 : public user_data
     {
         struct thData tdL;
         tdL = *((struct thData *)arg);
-        int donation_value;
 
         if (read(tdL.cl, &donation_value, sizeof(int)) <= 0) // read_4 - get the donation_value selected
         {
@@ -468,8 +474,6 @@ class client_0 : public user_data
                 pthread_mutex_unlock(&mutex);
             }
 
-            // sleep(1); // HEAVEN
-
             pthread_mutex_lock(&mutex);
             std::string end_msg = "end";
             write(tdL.cl, end_msg.c_str(), end_msg.size()); // write_4_end
@@ -484,7 +488,7 @@ class client_0 : public user_data
         //               << "WHERE FWR_DB.Donations.ID_Donation = " << donation_value;
         // auto result_3 = exec_SQL_Query(SQLDetails.getConnection(), queryStream_3.str());
 
-        std::string queryStream_3 = "UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = ? WHERE FWR_DB.Donations.ID_Donation = ?";
+        std::string queryStream_3 = "UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = ? , FWR_DB.Donations.pending_request= 1 WHERE FWR_DB.Donations.ID_Donation = ?";
         int id_value = tdL.idThread + 1;
         std::vector<std::string> parameters = {std::to_string(id_value), std::to_string(donation_value)};
 
@@ -538,7 +542,7 @@ class client_0 : public user_data
     }
 };
 
-class client_1 : public user_data 
+class client_1 : public user_data
 {
 public:
     //------------------------------------------ client_1
@@ -552,7 +556,7 @@ public:
         pthread_mutex_unlock(&mutex);
 
         SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
-        auto result = exec_SQL_Query(SQLDetails.getConnection(), "SELECT * FROM FWR_DB.Donations WHERE ID0 IS NULL");
+        auto result = exec_SQL_Query(SQLDetails.getConnection(), "SELECT * FROM FWR_DB.Donations JOIN FWR_DB.client1 ON FWR_DB.Donations.ID1=FWR_DB.client1.ID1 WHERE FWR_DB.Donations.pending_request = 1 AND FWR_DB.client1.Username = '" + std::string(username) + "'");
 
         // Unpack the tupleD
         MYSQL_RES *resultSet;
@@ -599,6 +603,8 @@ public:
 
     void request_response(void *arg)
     {
+        SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
+
         struct thData tdL;
         tdL = *((struct thData *)arg);
 
@@ -618,11 +624,36 @@ public:
             pthread_mutex_lock(&mutex);
             write(tdL.cl, "The donation will be avalable!", sizeof("The donation will be avalable!")); // write_5.1
             pthread_mutex_unlock(&mutex);
+
+            ACCEPTED_REQUEST = 1;
         }
         else
         {
             pthread_mutex_lock(&mutex);
             write(tdL.cl, "The requestes donation was not accepted... ", sizeof("The requestes donation was not accepted...")); // write_5.2
+            pthread_mutex_unlock(&mutex);
+
+            ACCEPTED_REQUEST = 0;
+        }
+
+        if (ACCEPTED_REQUEST == 1)
+        {
+            pthread_mutex_lock(&mutex);
+            std::string final_queryStream = "UPDATE FWR_DB.Donations SET FWR_DB.Donations.pending_request = 0 WHERE FWR_DB.Donations.ID1 IN (SELECT ID1 FROM FWR_DB.client1 WHERE Username = ?)";
+            std::vector<std::string> parameters = {username};
+
+            exec_non_SELECT_Parametrized_Query(SQLDetails.getConnection(), final_queryStream, parameters);
+
+            pthread_mutex_unlock(&mutex);
+        }
+        else
+        {
+            pthread_mutex_lock(&mutex);
+            std::string final_queryStream = "UPDATE FWR_DB.Donations SET FWR_DB.Donations.pending_request = 0, FWR_DB.Donations.ID0 = NULL  WHERE FWR_DB.Donations.ID1 IN (SELECT ID1 FROM FWR_DB.client1 WHERE Username = ?)";
+            std::vector<std::string> parameters = {username};
+
+            exec_non_SELECT_Parametrized_Query(SQLDetails.getConnection(), final_queryStream, parameters);
+
             pthread_mutex_unlock(&mutex);
         }
     }
@@ -736,7 +767,7 @@ static void *treat_client_0(void *arg)
     client_0 user;
     user.username_list_viewer((struct thData *)arg);
     //------------------------------------------
-    user.store_current_name((struct thData *)arg);
+    user.store_current_username_and_ID((struct thData *)arg);
     //------------------------------------------
     if (VALID_USERNAME)
     {
@@ -766,7 +797,7 @@ static void *treat_client_1(void *arg)
     client_1 user;
     user.username_list_viewer((struct thData *)arg);
     //------------------------------------------
-    user.store_current_name((struct thData *)arg);
+    user.store_current_username_and_ID((struct thData *)arg);
     //------------------------------------------
     if (VALID_USERNAME)
     {

@@ -284,19 +284,19 @@ int main(int argc, char *argv[])
 
         pthread_mutex_lock(&mutex);
         printf("\n[client_1]Today we have the following list of requested donations:\n");
-        char buffer[10000];
+        char list_of_requests[10000];
         int bytesRead;
-        while ((bytesRead = read(sd, buffer, sizeof(buffer) - 1)) > 0) // 1.read_1.1 / read_1.2 - list_of_requests
-            if (strstr(buffer, "end") != NULL)
+        while ((bytesRead = read(sd, list_of_requests, sizeof(list_of_requests) - 1)) > 0) // 1.read_1.1 / read_1.2 - list_of_requests
+            if (strstr(list_of_requests, "end") != NULL)
             {
-                buffer[bytesRead - 3] = '\0';
-                write(1, buffer, strlen(buffer));
+                list_of_requests[bytesRead - 3] = '\0';
+                write(1, list_of_requests, strlen(list_of_requests));
                 break;
             }
             else
             {
-                buffer[bytesRead] = '\0';
-                write(1, buffer, strlen(buffer));
+                list_of_requests[bytesRead] = '\0';
+                write(1, list_of_requests, strlen(list_of_requests));
             }
         //---------test----
         // printf("\n TEST:\n%s\n", buffer);
@@ -311,24 +311,31 @@ int main(int argc, char *argv[])
         //-----------------------------------------------------------------------------------------------------------------------------------------
 
         pthread_mutex_lock(&mutex);
-        printf("Do you accept the donation requests? (yes/no): ");
-        char answer[10];
-        if (scanf("%s", answer) != 1)
+        if (strstr(list_of_requests, "Unfortunately") != NULL)
         {
-            perror("\n\n[client_1]Error at the scanf() function (reading from terminal)!\n\n");
-            return errno;
+            close(sd);
+            return 0;
         }
-        if (write(sd, &answer, sizeof(answer)) <= 0) // 1.write_4
+        else
         {
-            perror("\n[client_1]Error at the write() function!\n\n");
-            return errno;
+            printf("Do you accept the donation requests? (yes/no): ");
+            char answer[10];
+            if (scanf("%s", answer) != 1)
+            {
+                perror("\n\n[client_1]Error at the scanf() function (reading from terminal)!\n\n");
+                return errno;
+            }
+            if (write(sd, &answer, sizeof(answer)) <= 0) // 1.write_4
+            {
+                perror("\n[client_1]Error at the write() function!\n\n");
+                return errno;
+            }
+            pthread_mutex_unlock(&mutex);
+
+            char final_answer[1000];
+            read(sd, &final_answer, sizeof(final_answer)); // 1.read_4
+            printf("\n[client_1]The answer from the server is: %s\n", final_answer);
         }
-        pthread_mutex_unlock(&mutex);
-
-        char final_answer[1000];
-        read(sd, &final_answer, sizeof(final_answer)); // 1.read_4
-        printf("\n[client_1]The answer from the server is: %s\n", final_answer);
-
         /* inchidem conexiunea, am terminat */
         close(sd);
     }
