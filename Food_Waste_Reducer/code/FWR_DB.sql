@@ -78,3 +78,5 @@ SELECT Username FROM FWR_DB.client0;
 SELECT * FROM FWR_DB.Products JOIN FWR_DB.Donations ON FWR_DB.Products.ID_Donation = FWR_DB.Donations.ID_Donation JOIN FWR_DB.client0 ON FWR_DB.client0.ID0=FWR_DB.Donations.ID0 WHERE FWR_DB.Donations.ID0 IS NULL AND FWR_DB.client0.Username = 'Olaru';
 
 SELECT * FROM FWR_DB.Products JOIN FWR_DB.Donations ON FWR_DB.Products.ID_Donation = FWR_DB.Donations.ID_Donation WHERE FWR_DB.Donations.ID0 IS NULL
+
+SELECT * FROM FWR_DB.client0 WHERE FWR_DB.client0.Username = 'Olaru';

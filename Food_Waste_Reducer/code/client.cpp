@@ -107,8 +107,21 @@ int main(int argc, char *argv[])
 
         char hello_msg[100];
         read(sd, hello_msg, sizeof(hello_msg)); // 0.read_2 - hello_msg
-        write(0, hello_msg, strlen(hello_msg));
+        if (strstr(hello_msg, "not") != NULL)
+        {
+            printf("\n[client_0]You are not registered in our database!\n");
+            return errno;
+        }
+        else
+        {
+            printf("\n[client_0]You are registered in our database!\n");
+            write(0, hello_msg, strlen(hello_msg));
+        }
         pthread_mutex_unlock(&mutex);
+        //----verify-------
+        // close(sd);
+        //-----------------
+
         //----------------------------------------------------------------------------------------------------------------------------------------- Donation selection
 
         pthread_mutex_lock(&mutex);
@@ -255,7 +268,16 @@ int main(int argc, char *argv[])
 
         char hello_msg[100];
         read(sd, hello_msg, sizeof(hello_msg)); // 0.read_2 - hello_msg
-        write(0, hello_msg, strlen(hello_msg));
+        if (strstr(hello_msg, "not") != NULL)
+        {
+            printf("\n[client_0]You are not registered in our database!\n");
+            return errno;
+        }
+        else
+        {
+            printf("\n[client_0]You are registered in our database!\n");
+            write(0, hello_msg, strlen(hello_msg));
+        }
         pthread_mutex_unlock(&mutex);
 
         //----------------------------------------------------------------------------------------------------------------------------------------- Donation selection

@@ -24,6 +24,7 @@ Convention:
 
 /* portul folosit */
 #define PORT 3336
+int VALID_USERNAME = 1;
 int OK;
 
 /* codul de eroare returnat de anumite apeluri */
@@ -164,75 +165,7 @@ auto exec_SQL_Query(MYSQL *connection, std::string query)
 
     return std::make_tuple(result, mysql_num_rows(result), mysql_num_fields(result));
 }
-
 //=========================================================================================================================================
-
-// class client_1_DB_History
-// {
-// public:
-//     int idDonation[100];
-//     // int idClient_0;
-//     // int idClient_1;
-//     // int idProduct;
-//     // std::string type;
-//     // int amount;
-// private:
-//     void mysql_store_result(void *arg)
-//     {
-//         struct thData tdL;
-//         tdL = *((struct thData *)arg);
-
-//         pthread_mutex_lock(&mutex);
-//         printf("[Thread %d]The request connection from [client_1] has been received...\n\n", tdL.idThread);
-//         pthread_mutex_unlock(&mutex);
-
-//         SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
-//         auto result = exec_SQL_Query(SQLDetails.getConnection(), "SELECT * FROM FWR_DB.Donations WHERE ID0 IS NULL");
-
-//         // Unpack the tupleD
-//         MYSQL_RES *resultSet;
-//         unsigned long numRows, numFields;
-//         std::tie(resultSet, numRows, numFields) = result;
-
-//         // Print the result
-//         if (numRows == 0)
-//         {
-//             pthread_mutex_lock(&mutex);
-//             std::string msg = "========> Unfortunately, the list of requests is empty...\n========> Please try again later!\n";
-//             if (write(tdL.cl, msg.c_str(), msg.length()) <= 0) // 1.write_1.1
-//             {
-//                 perror("\n[Thread]Error at the write() function!\n");
-//                 return;
-//             }
-//             pthread_mutex_unlock(&mutex);
-//         }
-//         else
-//         {
-//             printf("Number of Rows: %lu\n", numRows);
-//             printf("Number of Fields: %lu\n", numFields);
-
-//             MYSQL_ROW row;
-//             while (row = mysql_fetch_row(resultSet))
-//             {
-//                 std::stringstream buffer;
-//                 buffer << "ID_Donation: " << row[0] << " | ID1: " << row[2] << "\n";
-//                 std::string result = buffer.str();
-
-//                 pthread_mutex_lock(&mutex);
-//                 write(tdL.cl, result.c_str(), result.size());
-//                 pthread_mutex_unlock(&mutex);
-//             }
-//         }
-
-//         pthread_mutex_lock(&mutex);
-//         std::string end_msg = "end";
-//         write(tdL.cl, end_msg.c_str(), end_msg.size()); // 1.write_end
-//         pthread_mutex_unlock(&mutex);
-
-//         mysql_free_result(resultSet);
-//     }
-// };
-
 class user_data
 {
 private:
@@ -344,11 +277,39 @@ public:
         // pthread_mutex_unlock(&mutex);
         //===============
 
-        std::stringstream buffer;
-        buffer << "\nHello " << username << "! You have successfully logged in!"
-               << "\n";
-        std::string result = buffer.str();
-        write(tdL.cl, result.c_str(), result.size()); // write_2 - hello_msg
+        SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
+        std::ostringstream queryStream; // Create a parameterized query
+        if(tdL.id_role == 0)
+            queryStream << "SELECT * FROM FWR_DB.client0 WHERE FWR_DB.client0.Username = '" << username << "'";
+        else
+            queryStream << "SELECT * FROM FWR_DB.client1 WHERE FWR_DB.client1.Username = '" << username << "'";
+        auto result = exec_SQL_Query(SQLDetails.getConnection(), queryStream.str());
+        // Unpack the tuple
+        MYSQL_RES *resultSet;
+        unsigned long numRows, numFields;
+        std::tie(resultSet, numRows, numFields) = result;
+
+        if (numRows == 0)
+        {
+            VALID_USERNAME = 0;
+
+            std::stringstream buffer;
+            buffer << "\nThe username " << username << " does not exits in our data base!"
+                   << "\n";
+            std::string result = buffer.str();
+            printf("\n%s\n", result.c_str());
+            write(tdL.cl, result.c_str(), result.size()); // write_2.1 - hello_msg
+        }
+        else
+        {
+            VALID_USERNAME = 1;
+
+            std::stringstream buffer;
+            buffer << "\nHello " << username << "! You have successfully logged in!"
+                   << "\n";
+            std::string result = buffer.str();
+            write(tdL.cl, result.c_str(), result.size()); // write_2.2 - hello_msg
+        }
     }
 
     void donation_list_viewer(void *arg)
@@ -767,12 +728,13 @@ static void *treat_client_0(void *arg)
     //------------------------------------------
     user0.store_current_name((struct thData *)arg);
     //------------------------------------------
-    user0.donation_list_viewer((struct thData *)arg);
-    //------------------------------------------
-    if (OK)
-        user0.request_sent((struct thData *)arg);
-    //------------------------------------------
-
+    if (VALID_USERNAME)
+    {
+        user0.donation_list_viewer((struct thData *)arg);
+        //------------------------------------------
+        if (OK)
+            user0.request_sent((struct thData *)arg);
+    }
     //------------------------------------------
     user0.final_message((struct thData *)arg);
 
@@ -796,9 +758,12 @@ static void *treat_client_1(void *arg)
     //------------------------------------------
     user1.store_current_name((struct thData *)arg);
     //------------------------------------------
-    user1.request_list_viewer((struct thData *)arg);
-    //------------------------------------------
-    user1.request_response((struct thData *)arg);
+    if (VALID_USERNAME)
+    {
+        user1.request_list_viewer((struct thData *)arg);
+        //------------------------------------------
+        user1.request_response((struct thData *)arg);
+    }
     //------------------------------------------
     user1.final_message((struct thData *)arg);
 
