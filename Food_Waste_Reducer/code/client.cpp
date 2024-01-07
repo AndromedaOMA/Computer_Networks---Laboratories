@@ -26,6 +26,8 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char *argv[])
 {
+    system("clear");
+
     int sd;                    // descriptorul de socket
     struct sockaddr_in server; // structura folosita pentru conectare
                                // mesajul trimis
@@ -125,6 +127,21 @@ int main(int argc, char *argv[])
         //----------------------------------------------------------------------------------------------------------------------------------------- Donation selection
 
         pthread_mutex_lock(&mutex);
+        char buffer_notification[1000];
+        int bytesRead_notification;
+        printf("\n[client_0]Here are the notifications for you:\n");
+        bytesRead_notification = read(sd, buffer_notification, sizeof(buffer_notification) - 1);
+        buffer_notification[bytesRead_notification - 1] = '\0';
+        printf("%s", buffer_notification);
+        pthread_mutex_unlock(&mutex);
+
+        //----------------------------------------------------------------------------------------------------------------------------------------- Donation selection
+
+        //---------test----
+        // printf("\n -----TEST:----\n");
+        //-----------------
+
+        pthread_mutex_lock(&mutex);
         char buffer[1000];
         int bytesRead;
         printf("\n[client_0]Today we have the following list of available donations:\n");
@@ -201,10 +218,9 @@ int main(int argc, char *argv[])
         }
         pthread_mutex_unlock(&mutex);
 
-        // //......
-        // printf("\n[client_0]Waiting for the server response and for the accept/refuse of the client_1...\n");
-        // printf("\nTODO!\n");
-        // sleep(2);
+        printf("\n[client_0]Waiting for the server response and for the accept/refuse of the client_1...\n");
+        printf("\n[client_0]It may take a while, so please come back to check any notifications later! :)\n");
+        sleep(2);
 
         // /* inchidem conexiunea, am terminat */
         // close(sd);

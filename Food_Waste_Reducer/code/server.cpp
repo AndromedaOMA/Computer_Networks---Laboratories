@@ -26,7 +26,7 @@ Convention:
 #define PORT 3336
 int VALID_USERNAME = 1;
 int ACCEPTED_REQUEST;
-int OK;
+int AVALABLE_DONATIONS;
 
 /* codul de eroare returnat de anumite apeluri */
 // extern int errno;
@@ -175,7 +175,6 @@ protected:
     int current_ID;
 
 public:
-    //------------------------------------------
     void username_list_viewer(void *arg)
     {
         struct thData tdL;
@@ -255,7 +254,7 @@ public:
         mysql_free_result(resultSet);
     }
 
-    void store_current_username_and_ID(void *arg)
+    void store_current_username(void *arg)
     {
         struct thData tdL;
         tdL = *((struct thData *)arg);
@@ -313,10 +312,82 @@ public:
             std::string result = buffer.str();
             write(tdL.cl, result.c_str(), result.size()); // write_2.2 - hello_msg
         }
+    }
 
-        //======= current_ID
-        // ....
-        //==================
+    void notification_viewer(void *arg)
+    {
+        struct thData tdL;
+        tdL = *((struct thData *)arg);
+
+        pthread_mutex_lock(&mutex);
+        printf("\n[Thread %d]The request to display the notifications from [client_0] has been received...\n\n", tdL.idThread);
+        pthread_mutex_unlock(&mutex);
+
+        SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
+        auto result = exec_SQL_Query(SQLDetails.getConnection(), "SELECT * FROM FWR_DB.Donations JOIN FWR_DB.client0 ON FWR_DB.Donations.ID0=FWR_DB.client0.ID0 WHERE FWR_DB.Donations.accepted_request = 1 AND FWR_DB.client0.Username = '" + std::string(username) + "'");
+
+        // Unpack the tuple
+        MYSQL_RES *resultSet;
+        unsigned long numRows, numFields;
+        std::tie(resultSet, numRows, numFields) = result;
+
+        // Print the result
+        if (numRows == 0)
+        {
+            auto second_result = exec_SQL_Query(SQLDetails.getConnection(), "SELECT * FROM FWR_DB.Donations JOIN FWR_DB.client0 ON FWR_DB.Donations.ID0=FWR_DB.client0.ID0 WHERE FWR_DB.Donations.accepted_request = 0 AND FWR_DB.client0.Username = '" + std::string(username) + "'");
+            MYSQL_RES *second_resultSet;
+            unsigned long second_numRows, second_numFields;
+            std::tie(second_resultSet, second_numRows, second_numFields) = second_result;
+
+            if (second_numRows > 0)
+            {
+                pthread_mutex_lock(&mutex);
+                std::string msg = "========> Unfortunately, your donation request was denied...\n========> Please try again later!\n";
+                if (write(tdL.cl, msg.c_str(), msg.length()) <= 0) // write_1.1 - list_of_notifications
+                {
+                    perror("\n[Thread]Error at the write() function!\n");
+                    return;
+                }
+                pthread_mutex_unlock(&mutex);
+
+                // UPDATE
+                pthread_mutex_lock(&mutex);
+                std::string update_queryStream = "UPDATE FWR_DB.Donations SET FWR_DB.Donations.accepted_request = -1 , FWR_DB.Donations.ID0 = NULL WHERE FWR_DB.Donations.ID0 IN (SELECT ID0 FROM FWR_DB.client0 WHERE Username = ?)";
+                std::vector<std::string> parameters = {username};
+                exec_non_SELECT_Parametrized_Query(SQLDetails.getConnection(), update_queryStream, parameters);
+                pthread_mutex_unlock(&mutex);
+            }
+            else
+            {
+                pthread_mutex_lock(&mutex);
+                std::string msg = "========> You have no notifications!\n";
+                if (write(tdL.cl, msg.c_str(), msg.length()) <= 0) // write_1.1 - list_of_notifications
+                {
+                    perror("\n[Thread]Error at the write() function!\n");
+                    return;
+                }
+                pthread_mutex_unlock(&mutex);
+            }
+        }
+        else
+        {
+            pthread_mutex_lock(&mutex);
+            std::string msg = "========> We have good news!\n========> Your donation request has been accepted!\n   [TODO -> location]\n";
+            if (write(tdL.cl, msg.c_str(), msg.length()) <= 0) // write_1.1 - list_of_notifications
+            {
+                perror("\n[Thread]Error at the write() function!\n");
+                return;
+            }
+            pthread_mutex_unlock(&mutex);
+
+            // UPDATE
+            pthread_mutex_lock(&mutex);
+            std::string update_queryStream = "UPDATE FWR_DB.Donations SET FWR_DB.Donations.accepted_request = -1 WHERE FWR_DB.Donations.ID0 IN (SELECT ID0 FROM FWR_DB.client0 WHERE Username = ?)";
+            std::vector<std::string> parameters = {username};
+            exec_non_SELECT_Parametrized_Query(SQLDetails.getConnection(), update_queryStream, parameters);
+            pthread_mutex_unlock(&mutex);
+        }
+        mysql_free_result(resultSet);
     }
 
     //------------------------------------------
@@ -358,7 +429,7 @@ public:
         // Print the result
         if (numRows == 0)
         {
-            OK = 0;
+            AVALABLE_DONATIONS = 0;
 
             pthread_mutex_lock(&mutex);
             std::string msg = "========> Unfortunately, the list of donations is empty...\n========> Please try again later!\n";
@@ -371,7 +442,7 @@ public:
         }
         else
         {
-            OK = 1;
+            AVALABLE_DONATIONS = 1;
 
             pthread_mutex_lock(&mutex);
             printf("Here we have the avalable donations data:\n");
@@ -385,6 +456,10 @@ public:
                 std::stringstream buffer;
                 buffer << "ID_Product: " << row[0] << " | ID_Donation: " << row[1] << " | Type: " << row[2] << " | Amount: " << row[3] << "\n";
                 std::string result = buffer.str();
+
+                //--------test-----------
+                // printf("\n result-TEST: %s", result.c_str());
+                //-----------------------
 
                 pthread_mutex_lock(&mutex);
                 write(tdL.cl, result.c_str(), result.size()); // write_3.2 - list_of_donations
@@ -627,7 +702,7 @@ public:
 
             ACCEPTED_REQUEST = 1;
         }
-        else
+        else if (strcmp(response, "no") == 0)
         {
             pthread_mutex_lock(&mutex);
             write(tdL.cl, "The requestes donation was not accepted... ", sizeof("The requestes donation was not accepted...")); // write_5.2
@@ -635,21 +710,29 @@ public:
 
             ACCEPTED_REQUEST = 0;
         }
+        else
+        {
+            pthread_mutex_lock(&mutex);
+            write(tdL.cl, "You have to aswer with yes/no!", sizeof("You have to aswer with yes/no!")); // write_5.2
+            pthread_mutex_unlock(&mutex);
+
+            ACCEPTED_REQUEST = -1;
+        }
 
         if (ACCEPTED_REQUEST == 1)
         {
             pthread_mutex_lock(&mutex);
-            std::string final_queryStream = "UPDATE FWR_DB.Donations SET FWR_DB.Donations.pending_request = 0 WHERE FWR_DB.Donations.ID1 IN (SELECT ID1 FROM FWR_DB.client1 WHERE Username = ?)";
+            std::string final_queryStream = "UPDATE FWR_DB.Donations SET FWR_DB.Donations.pending_request = 0 , FWR_DB.Donations.accepted_request = 1 WHERE FWR_DB.Donations.pending_request = 1 AND FWR_DB.Donations.ID1 IN (SELECT ID1 FROM FWR_DB.client1 WHERE Username = ?)";
             std::vector<std::string> parameters = {username};
 
             exec_non_SELECT_Parametrized_Query(SQLDetails.getConnection(), final_queryStream, parameters);
 
             pthread_mutex_unlock(&mutex);
         }
-        else
+        else if (ACCEPTED_REQUEST == 0)
         {
             pthread_mutex_lock(&mutex);
-            std::string final_queryStream = "UPDATE FWR_DB.Donations SET FWR_DB.Donations.pending_request = 0, FWR_DB.Donations.ID0 = NULL  WHERE FWR_DB.Donations.ID1 IN (SELECT ID1 FROM FWR_DB.client1 WHERE Username = ?)";
+            std::string final_queryStream = "UPDATE FWR_DB.Donations SET FWR_DB.Donations.pending_request = 0 , FWR_DB.Donations.accepted_request = 0 WHERE FWR_DB.Donations.pending_request = 1 AND FWR_DB.Donations.ID1 IN (SELECT ID1 FROM FWR_DB.client1 WHERE Username = ?)";
             std::vector<std::string> parameters = {username};
 
             exec_non_SELECT_Parametrized_Query(SQLDetails.getConnection(), final_queryStream, parameters);
@@ -767,13 +850,15 @@ static void *treat_client_0(void *arg)
     client_0 user;
     user.username_list_viewer((struct thData *)arg);
     //------------------------------------------
-    user.store_current_username_and_ID((struct thData *)arg);
+    user.store_current_username((struct thData *)arg);
     //------------------------------------------
     if (VALID_USERNAME)
     {
+        user.notification_viewer((struct thData *)arg);
+        //------------------------------------------
         user.donation_list_viewer((struct thData *)arg);
         //------------------------------------------
-        if (OK)
+        if (AVALABLE_DONATIONS)
             user.request_sent((struct thData *)arg);
     }
     //------------------------------------------
@@ -797,7 +882,7 @@ static void *treat_client_1(void *arg)
     client_1 user;
     user.username_list_viewer((struct thData *)arg);
     //------------------------------------------
-    user.store_current_username_and_ID((struct thData *)arg);
+    user.store_current_username((struct thData *)arg);
     //------------------------------------------
     if (VALID_USERNAME)
     {

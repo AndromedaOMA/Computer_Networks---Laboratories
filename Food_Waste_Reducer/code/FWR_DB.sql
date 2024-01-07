@@ -61,6 +61,8 @@ INSERT INTO FWR_DB.Products (ID_Donation, Type, Amount) VALUES
 
 ALTER TABLE FWR_DB.Donations ADD COLUMN pending_request INT DEFAULT 0;
 
+ALTER TABLE FWR_DB.Donations ADD COLUMN accepted_request INT DEFAULT -1;
+
 SELECT * FROM FWR_DB.client0;
 SELECT * FROM FWR_DB.client1;
 SELECT * FROM FWR_DB.Donations;
@@ -71,6 +73,9 @@ SELECT * FROM FWR_DB.Products WHERE ID_Donation = 1;
 UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = 1 WHERE FWR_DB.Donations.ID_Donation IN (1,3,4,6,8);
 
 UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = NULL WHERE FWR_DB.Donations.ID_Donation IN (1,3,4,6,8);
+
+
+UPDATE FWR_DB.Donations SET FWR_DB.Donations.accepted_request = -1 WHERE FWR_DB.Donations.ID1 IN (1,2,3,4);
 
 SELECT * FROM FWR_DB.Products JOIN FWR_DB.Donations ON FWR_DB.Products.ID_Donation = FWR_DB.Donations.ID_Donation WHERE FWR_DB.Donations.ID0 IS NULL
 SELECT * FROM FWR_DB.Products p JOIN FWR_DB.Donations d ON p.ID_Donation = d.ID_Donation WHERE d.ID_Donation = 8 AND d.ID0 IS NULL
@@ -89,3 +94,7 @@ UPDATE FWR_DB.Donations SET FWR_DB.Donations.ID0 = 1 , FWR.DB.Donations.pending_
 
 UPDATE FWR_DB.Donations SET FWR_DB.Donations.pending_request = 0 WHERE FWR_DB.Donations.ID1 IN (SELECT ID1 FROM FWR_DB.client1 WHERE Username = ' Mega ');
 UPDATE FWR_DB.Donations SET FWR_DB.Donations.pending_request = 0, FWR_DB.Donations.ID0 = NULL  WHERE FWR_DB.Donations.ID1 IN (SELECT ID1 FROM FWR_DB.client1 WHERE Username = 'Mega');
+
+SELECT * FROM FWR_DB.Donations JOIN FWR_DB.client0 ON FWR_DB.Donations.ID0=FWR_DB.client0.ID0 WHERE FWR_DB.Donations.accepted_request = 1 AND FWR_DB.client0.Username = 'Olaru';
+
+UPDATE FWR_DB.Donations SET FWR_DB.Donations.pending_request = 0 , FWR_DB.Donations.accepted_request = 1 WHERE FWR_DB.Donations.pending_request = 1 AND FWR_DB.Donations.ID1 IN (SELECT ID1 FROM FWR_DB.client1 WHERE Username = 'Profi')
