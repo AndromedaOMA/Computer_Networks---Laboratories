@@ -133,6 +133,24 @@ int main(int argc, char *argv[])
         bytesRead_notification = read(sd, buffer_notification, sizeof(buffer_notification) - 1);
         buffer_notification[bytesRead_notification - 1] = '\0';
         printf("%s", buffer_notification);
+        if (strstr(buffer_notification, "good") != NULL)
+        {
+            char buffer_notification_2[1000];
+            int bytesRead_notification_2;
+            printf("\n[client_0]Here is where the donation needs to be picked up:\n");
+            while ((bytesRead_notification_2 = read(sd, buffer_notification_2, sizeof(buffer_notification_2) - 1)) > 0) // 0.read_3.1 / read_3.2 - list_of_donations
+                if (strstr(buffer_notification_2, "end") != NULL)
+                {
+                    buffer_notification_2[bytesRead_notification_2 - 3] = '\0';
+                    printf("%s", buffer_notification_2);
+                    break;
+                }
+                else
+                {
+                    buffer_notification_2[bytesRead_notification_2] = '\0';
+                    printf("%s", buffer_notification_2);
+                }
+        }
         pthread_mutex_unlock(&mutex);
 
         //----------------------------------------------------------------------------------------------------------------------------------------- Donation selection
@@ -286,12 +304,12 @@ int main(int argc, char *argv[])
         read(sd, hello_msg, sizeof(hello_msg)); // 0.read_2 - hello_msg
         if (strstr(hello_msg, "not") != NULL)
         {
-            printf("\n[client_0]You are not registered in our database!\n");
+            printf("\n[client_1]You are not registered in our database!\n");
             return errno;
         }
         else
         {
-            printf("\n[client_0]You are registered in our database!\n");
+            printf("\n[client_1]You are registered in our database!\n");
             write(0, hello_msg, strlen(hello_msg));
         }
         pthread_mutex_unlock(&mutex);

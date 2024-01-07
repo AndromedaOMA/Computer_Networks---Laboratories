@@ -62,6 +62,21 @@ INSERT INTO FWR_DB.Products (ID_Donation, Type, Amount) VALUES
 ALTER TABLE FWR_DB.Donations ADD COLUMN pending_request INT DEFAULT 0;
 
 ALTER TABLE FWR_DB.Donations ADD COLUMN accepted_request INT DEFAULT -1;
+--source:https://blog.devart.com/mysql-data-types.html
+ALTER TABLE FWR_DB.client1 ADD COLUMN location POINT;
+            UPDATE FWR_DB.client1 SET location=ST_GeomFromText('POINT(40.7128 -74.0060)') WHERE ID1 = 1;
+            UPDATE FWR_DB.client1 SET location=ST_GeomFromText('POINT(34.0522 -118.2437)') WHERE ID1 = 2;
+            UPDATE FWR_DB.client1 SET location=ST_GeomFromText('POINT(41.8781 -87.6298)') WHERE ID1 = 3;
+            UPDATE FWR_DB.client1 SET location=ST_GeomFromText('POINT(37.7749 -122.4194)') WHERE ID1 = 4;
+
+ALTER TABLE FWR_DB.client1 ADD COLUMN Latitude_location VARCHAR(255);
+ALTER TABLE FWR_DB.client1 ADD COLUMN Longitude_location VARCHAR(255);
+    UPDATE FWR_DB.client1 SET Latitude_location = '40.7128' , Longitude_location = '-74.0060' WHERE ID1 = 1;
+    UPDATE FWR_DB.client1 SET Latitude_location = '34.0522' , Longitude_location = '-118.2437' WHERE ID1 = 2;
+    UPDATE FWR_DB.client1 SET Latitude_location = '41.8781' , Longitude_location = '-87.6298' WHERE ID1 = 3;
+    UPDATE FWR_DB.client1 SET Latitude_location = '37.7749' , Longitude_location = '-122.4194' WHERE ID1 = 4;
+
+
 
 SELECT * FROM FWR_DB.client0;
 SELECT * FROM FWR_DB.client1;
@@ -98,3 +113,8 @@ UPDATE FWR_DB.Donations SET FWR_DB.Donations.pending_request = 0, FWR_DB.Donatio
 SELECT * FROM FWR_DB.Donations JOIN FWR_DB.client0 ON FWR_DB.Donations.ID0=FWR_DB.client0.ID0 WHERE FWR_DB.Donations.accepted_request = 1 AND FWR_DB.client0.Username = 'Olaru';
 
 UPDATE FWR_DB.Donations SET FWR_DB.Donations.pending_request = 0 , FWR_DB.Donations.accepted_request = 1 WHERE FWR_DB.Donations.pending_request = 1 AND FWR_DB.Donations.ID1 IN (SELECT ID1 FROM FWR_DB.client1 WHERE Username = 'Profi')
+
+
+
+
+SELECT FWR_DB.client1.Latitude_location, FWR_DB.client1.Longitude_location FROM FWR_DB.client0 JOIN FWR_DB.Donations ON FWR_DB.client0.ID0 = FWR_DB.Donations.ID0 JOIN FWR_DB.client1 ON FWR_DB.Donations.ID1 = FWR_DB.client1.ID1 WHERE FWR_DB.client0.Username = 'Popescu';

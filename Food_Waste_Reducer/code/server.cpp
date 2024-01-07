@@ -314,6 +314,45 @@ public:
         }
     }
 
+    void show_coordinates(void *arg)
+    {
+        struct thData tdL;
+        tdL = *((struct thData *)arg);
+
+        pthread_mutex_lock(&mutex);
+        printf("\n[Thread %d]The request to display the coordinates from [client_0] has been received...\n\n", tdL.idThread);
+        pthread_mutex_unlock(&mutex);
+
+        SQLConnection SQLDetails("localhost", "admin_user", "Lrt54%hh", "FWR_DB");
+        auto result = exec_SQL_Query(SQLDetails.getConnection(), "SELECT FWR_DB.client1.Latitude_location, FWR_DB.client1.Longitude_location FROM FWR_DB.client0 JOIN FWR_DB.Donations ON FWR_DB.client0.ID0 = FWR_DB.Donations.ID0 JOIN FWR_DB.client1 ON FWR_DB.Donations.ID1 = FWR_DB.client1.ID1 WHERE FWR_DB.client0.Username = '" + std::string(username) + "'");
+
+        // Unpack the tuple
+        MYSQL_RES *resultSet;
+        unsigned long numRows, numFields;
+        std::tie(resultSet, numRows, numFields) = result;
+
+        MYSQL_ROW row;
+        while (row = mysql_fetch_row(resultSet))
+        {
+            std::stringstream buffer;
+            buffer << "Latitude: " << row[0] << " | Longitude: " << row[1] << "\n";
+            std::string result = buffer.str();
+
+            //--------test-----------
+            // printf("\n result-TEST: %s", result.c_str());
+            //-----------------------
+
+            pthread_mutex_lock(&mutex);
+            write(tdL.cl, result.c_str(), result.size()); // write_1.1 - list_of_notifications
+            pthread_mutex_unlock(&mutex);
+        }
+
+        pthread_mutex_lock(&mutex);
+        std::string end_msg = "end";
+        write(tdL.cl, end_msg.c_str(), end_msg.size()); // write_3_end
+        pthread_mutex_unlock(&mutex);
+    }
+
     void notification_viewer(void *arg)
     {
         struct thData tdL;
@@ -342,7 +381,7 @@ public:
             if (second_numRows > 0)
             {
                 pthread_mutex_lock(&mutex);
-                std::string msg = "========> Unfortunately, your donation request was denied...\n========> Please try again later!\n";
+                std::string msg = "========> Unfortunately, your donation request was denied...\n========> Please try again later!\n\n";
                 if (write(tdL.cl, msg.c_str(), msg.length()) <= 0) // write_1.1 - list_of_notifications
                 {
                     perror("\n[Thread]Error at the write() function!\n");
@@ -360,7 +399,7 @@ public:
             else
             {
                 pthread_mutex_lock(&mutex);
-                std::string msg = "========> You have no notifications!\n";
+                std::string msg = "========> You have no notifications!\n\n";
                 if (write(tdL.cl, msg.c_str(), msg.length()) <= 0) // write_1.1 - list_of_notifications
                 {
                     perror("\n[Thread]Error at the write() function!\n");
@@ -372,13 +411,16 @@ public:
         else
         {
             pthread_mutex_lock(&mutex);
-            std::string msg = "========> We have good news!\n========> Your donation request has been accepted!\n   [TODO -> location]\n";
+            std::string msg = "========> We have good news!\n========> Your donation request has been accepted!\n\n";
             if (write(tdL.cl, msg.c_str(), msg.length()) <= 0) // write_1.1 - list_of_notifications
             {
                 perror("\n[Thread]Error at the write() function!\n");
                 return;
             }
             pthread_mutex_unlock(&mutex);
+
+            //  [TODO -> location]
+            show_coordinates((struct thData *)arg);
 
             // UPDATE
             pthread_mutex_lock(&mutex);
